@@ -1,4 +1,4 @@
-# Glowstone Engine
+# Glowstone engine
 Learning Vulkan and real-time path tracing algorithms through the development of a deferred path tracer using a geometry pass for primary rays.
 
 ![Render](media/render_portal.png)
