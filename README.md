@@ -4,7 +4,7 @@ Learning Vulkan and real-time path tracing algorithms through the development of
 ![Render](media/render_portal.png)
 
 ### Disclaimer
-In it's current state, the project is a support for learning path tracing and GPU programming. Some unoptimized or redundant code segments are to be expected.
+In it's current state, the project is a support for learning path tracing algorithms and GPU programming. Some unoptimized or redundant code segments are to be expected.
 
 ### Portfolio page
 More details on this page:
