@@ -1,6 +1,5 @@
-<img src="media/banner.png" alt="Banner" style="width: 100%; display: block; image-rendering: pixelated;">
+<img src="media/banner.png" alt="Banner" style="width: 100%; display: block;">
 
-<br>
 <div>
   <h1> Glowstone engine </h1>
 </div>
