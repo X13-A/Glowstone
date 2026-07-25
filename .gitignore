@@ -1,0 +1,8 @@
+build/
+out/
+.vs/
+.vscode/
+
+# Claude
+CLAUDE.md
+memory/

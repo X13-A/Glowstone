@@ -1,0 +1,51 @@
+{
+    "version": 8,
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_CONFIGURATION_TYPES": "Debug;RelWithDebInfo;Release",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows - MSVC",
+            "description": "Needs cl.exe on PATH",
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-debug",
+            "displayName": "Debug",
+            "configurePreset": "windows",
+            "configuration": "Debug"
+        },
+        {
+            "name": "windows-relwithdebinfo",
+            "displayName": "RelWithDebInfo",
+            "configurePreset": "windows",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "windows-release",
+            "displayName": "Release",
+            "configurePreset": "windows",
+            "configuration": "Release"
+        }
+    ]
+}
