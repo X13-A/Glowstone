@@ -1,4 +1,4 @@
-<img src="media/banner.png" alt="Banner" style="width: 100%; display: block;">
+<!-- <img src="media/banner.png" alt="Banner" style="width: 100%; display: block;"> -->
 
 <div>
   <h1> Glowstone engine </h1>
