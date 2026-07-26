@@ -38,7 +38,7 @@ PushConstants pushConstants;
 [[vk::binding(5)]] StructuredBuffer<MeshData> meshDataBuffer;
 [[vk::binding(6)]] StructuredBuffer<InstanceData> instanceDataBuffer;
 
-// TODO: make 1024 match the C++ part (compile-time define)
+// TODO: make 1024 match the C++ part (compile-time define ?)
 [[vk::binding(7)]] Sampler2D materialsAlbedo[1024];
 [[vk::binding(8)]] Sampler2D materialsNormal[1024];
 [[vk::binding(9)]] Sampler2D materialsRoughness[1024];
@@ -110,9 +110,19 @@ void main(inout RayPayload payload, in Attributes attribs)
     float roughness = materialsRoughness[meshIndex].SampleLevel(uv, 0).r;
     float metalness = materialsMetalness[meshIndex].SampleLevel(uv, 0).r;
 
-    payload.color = float3(0, 0, 0);
+    // Surface data the ReSTIR candidate ray needs to build the light vertex x2
+    payload.normal = normal;
+    payload.albedo = textureColor.rgb;
+
+    // Emitted radiance, so that traceRadiance stays a valid direct-lighting ground truth
+    // for the non-ReSTIR modes now that emitters exist
+    payload.color = isEmissiveAlbedo(textureColor.rgb) ? EMISSIVE_RADIANCE : float3(0, 0, 0);
     uint rngState = payload.rngState;
 
+    // Indirect bounces are disabled while validating ReSTIR DI: a hit surface
+    // carries no radiance, so traceRadiance reduces to V * L_e and the reference
+    // mode becomes a direct-lighting ground truth
+#if 1
     if (payload.depth < payload.maxDepth)
     {
         float3 viewDir = -WorldRayDirection();
@@ -175,4 +185,5 @@ void main(inout RayPayload payload, in Attributes attribs)
             payload.color = brdfValue * bouncePayload.color * sampleWeight;
         }
     }
+#endif
 }

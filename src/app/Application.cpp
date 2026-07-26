@@ -1,6 +1,10 @@
 #include "app/Application.hpp"
 #include <iostream>
 #include <string>
+#include <sstream>
+#include <iomanip>
+#include <thread>
+#include <chrono>
 #include "core/Math.hpp"
 #include "input/EventManager.hpp"
 #include "core/Time.hpp"
@@ -19,6 +23,12 @@ using namespace vkrt::gpu;
 using namespace vkrt::input;
 using namespace vkrt::render;
 using namespace vkrt::scene;
+
+namespace {
+constexpr double TITLE_UPDATE_INTERVAL = 0.25;
+constexpr int FRAME_RATE_CAP = 60;
+constexpr double FRAME_RATE_CAP_MARGIN = 0.002;
+}
 
 void Application::handleWindowResize(const WindowResizeEvent& e)
 {
@@ -227,9 +237,17 @@ void Application::handleInputs()
     }
     if (inputManager.isKeyJustPressed(KeyboardKey::C))
     {
-        Time::resetFrameCount();
-        Settings::risCandidates -= 1;
-        std::cout << "RIS candidates: " << Settings::risCandidates << std::endl;
+        if (inputManager.isKeyPressed(KeyboardKey::LCTRL))
+        {
+            frameRateCapEnabled = !frameRateCapEnabled;
+            std::cout << "Frame rate cap: " << (frameRateCapEnabled ? std::to_string(FRAME_RATE_CAP) + " FPS" : "off") << std::endl;
+        }
+        else
+        {
+            Time::resetFrameCount();
+            Settings::risCandidates -= 1;
+            std::cout << "RIS candidates: " << Settings::risCandidates << std::endl;
+        }
     }
     if (inputManager.isKeyJustPressed(KeyboardKey::B))
     {
@@ -313,15 +331,19 @@ void Application::mainLoop()
     {
         try
         {
+            double frameStart = Time::time();
+
             glfwPollEvents();
             inputManager.retrieveInputs(windowManager.getWindow());
             handleInputs();
 
             Scene::update();
             renderer.drawFrame(nativeWidth, nativeHeight, scaledWidth, scaledHeight, windowManager.getWindow(), context, swapChainManager, graphicsPipelineManager, commandBufferManager, camera, Scene::getModels(), fullScreenQuad);
-           
+
+            updateWindowTitle();
+            limitFrameRate(frameStart);
+
             Time::update();
-            updateFPS();
         }
         catch (std::exception e)
         {
@@ -333,24 +355,48 @@ void Application::mainLoop()
     context.device.waitIdle();
 }
 
-void Application::updateFPS()
+void Application::updateWindowTitle()
 {
-    static int frameCount = 0;
-    frameCount++;
+    frameTimeAccumulator += renderer.getGpuFrameTimeMs();
+    frameTimeSamples++;
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float duration = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
-
-    // Average over one second
-    if (duration >= 1.0f)
+    double currentTime = Time::time();
+    if (currentTime - lastTitleUpdate < TITLE_UPDATE_INTERVAL)
     {
-        float fps = frameCount / duration;
+        return;
+    }
 
-        std::string newTitle = std::string(GLFW_WINDOW_NAME) + " - FPS: " + std::to_string(static_cast<int>(fps));
-        glfwSetWindowTitle(windowManager.getWindow(), newTitle.c_str());
+    std::ostringstream title;
+    title << GLFW_WINDOW_NAME << " - " << std::fixed << std::setprecision(2) << frameTimeAccumulator / frameTimeSamples << " ms";
+    if (frameRateCapEnabled)
+    {
+        title << " (capped " << FRAME_RATE_CAP << " FPS)";
+    }
+    glfwSetWindowTitle(windowManager.getWindow(), title.str().c_str());
 
-        frameCount = 0;
-        lastTime = currentTime;
+    frameTimeAccumulator = 0.0;
+    frameTimeSamples = 0;
+    lastTitleUpdate = currentTime;
+}
+
+void Application::limitFrameRate(double frameStart)
+{
+    if (!frameRateCapEnabled)
+    {
+        return;
+    }
+
+    const double targetEnd = frameStart + 1.0 / FRAME_RATE_CAP;
+
+    double remaining = targetEnd - Time::time();
+    if (remaining > FRAME_RATE_CAP_MARGIN)
+    {
+        std::this_thread::sleep_for(std::chrono::duration<double>(remaining - FRAME_RATE_CAP_MARGIN));
+    }
+
+    while (Time::time() < targetEnd)
+    {
+        std::this_thread::yield();
     }
 }
 

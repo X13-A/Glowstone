@@ -5,14 +5,17 @@
     "entry": "main"
   },
   "includes": [
-    "ray_common"
+    "ray_common",
+    "restir",
+    "restir_trace",
+    "restir_stages"
   ],
   "shaders": [
     { "name": "geometry_vert",    "stage": "vertex" },
     { "name": "geometry_frag",    "stage": "fragment" },
     { "name": "lighting_vert",    "stage": "vertex" },
     { "name": "lighting_frag",    "stage": "fragment",      "deps": ["ray_common"] },
-    { "name": "ray_gen",          "stage": "raygeneration", "deps": ["ray_common"] },
+    { "name": "ray_gen",          "stage": "raygeneration", "deps": ["ray_common", "restir", "restir_trace", "restir_stages"] },
     { "name": "ray_miss",         "stage": "miss",          "deps": ["ray_common"] },
     { "name": "ray_closesthit",   "stage": "closesthit",    "deps": ["ray_common"] },
     { "name": "variance_compute", "stage": "compute" },

@@ -11,25 +11,39 @@ using namespace vkrt::assets;
 
 const ModelLoadInfo Scene::modelLoadInfos[] =
 {
-	{
-		"atrium",
-		"assets/models/Atrium/atrium.obj",
-		glm::vec3(0, 0, 0),
-		glm::vec3(1, 1, 1),
-		glm::vec3(0, 0, 0)
-	},
+	// {
+	// 	"atrium",
+	// 	"assets/models/Atrium/atrium.obj",
+	// 	glm::vec3(0, 0, 0),
+	// 	glm::vec3(1, 1, 1),
+	// 	glm::vec3(0, 0, 0)
+	// },
 	{
 		"companion_cube",
 		"assets/models/companion_cube/companion.obj",
-		glm::vec3(0, 1.2, 0),
-		glm::vec3(1, 1, 1),
-		glm::vec3(0, 0, 0)
+		glm::vec3(-1, -1.9, -0.5),
+		glm::vec3(0.6, 0.6, 0.6),
+		glm::vec3(0, 45, 0)
 	},
-	{
-		"wall",
-		"assets/models/wall/quad.obj",
-		glm::vec3(0, -10, 0),
-		glm::vec3(1, 1, 1),
+	// {
+	// 	"moai",
+	// 	"assets/models/Moai/moai.obj",
+	// 	glm::vec3(0, 0.2, 0),
+	// 	glm::vec3(0.15, 0.15, 0.15),
+	// 	glm::vec3(0, 0, 0)
+	// },
+	// {
+	// 	"wall",
+	// 	"assets/models/wall/quad.obj",
+	// 	glm::vec3(0, -10, 0),
+	// 	glm::vec3(1, 1, 1),
+	// 	glm::vec3(0, 0, 0)
+	// },
+		{
+		"test-chamber",
+		"assets/models/test-chamber-scrubbed/test-chamber.obj",
+		glm::vec3(0, 0, 0),
+		glm::vec3(2, 2, 2),
 		glm::vec3(0, 0, 0)
 	},
 };

@@ -14,7 +14,7 @@ Pc 0.000000
 Pcr 0.030000
 aniso 0.000000
 anisor 0.000000
-map_Kd ./DefaultMaterial_baseColor.jpeg
+map_Kd ./DefaultMaterial_baseColor_white.jpeg
 map_Bump -bm 1.000000 DefaultMaterial_normal.png
 map_Pr ./DefaultMaterial_metallicRoughness.png
 map_Pm ./DefaultMaterial_metallicRoughness.png

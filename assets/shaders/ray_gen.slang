@@ -4,6 +4,10 @@
 #define SAMPLING_MODE SAMPLING_MODE_RESTIR
 #endif
 
+#if SAMPLING_MODE == SAMPLING_MODE_RESTIR
+#include "restir.slang"
+#endif
+
 [[push_constant]]
 PushConstants pushConstants;
 
@@ -22,6 +26,8 @@ PushConstants pushConstants;
 [[vk::binding(17)]] RWStructuredBuffer<PackedReservoir> reservoirBufferA;
 [[vk::binding(18)]] RWStructuredBuffer<PackedReservoir> reservoirBufferB;
 [[vk::binding(19)]] Sampler2D velocityBuffer;
+
+#include "restir_stages.slang"
 #endif
 
 #if SAMPLING_MODE != SAMPLING_MODE_RESTIR
@@ -34,35 +40,11 @@ void blendResult(float4 previousColor, float4 currentColor, uint2 pixelCoord, ui
 }
 #endif
 
-#if SAMPLING_MODE == SAMPLING_MODE_RESTIR
-PackedReservoir loadReservoir(int parity, uint index)
-{
-    return parity == 0 ? reservoirBufferB[index] : reservoirBufferA[index];
-}
-
-void storeReservoir(int parity, uint index, PackedReservoir r)
-{
-    if (parity == 0)
-    {
-        reservoirBufferA[index] = r;
-    }
-    else
-    {
-        reservoirBufferB[index] = r;
-    }
-}
-#endif
-
 // Trace a ray and return the incoming radiance
 float3 traceRadiance(float3 origin, float3 direction, uint rngState)
 {
-    RayPayload payload;
-    payload.depth = 0;
+    RayPayload payload = createRayPayload(origin);
     payload.maxDepth = sceneData.maxDepth;
-    payload.color = float3(0, 0, 0);
-    payload.hitGeometry = false;
-    payload.t = 0;
-    payload.pos = origin;
     payload.rngState = rngState;
 
     RayDesc ray;
@@ -71,76 +53,9 @@ float3 traceRadiance(float3 origin, float3 direction, uint rngState)
     ray.TMin = 0.01;
     ray.TMax = 1000.0;
 
-    TraceRay(scene, 0, 0xFF, 0, 1, 0, ray, payload);
+    TraceRay(scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
     return payload.color;
 }
-
-#if SAMPLING_MODE == SAMPLING_MODE_RESTIR
-float3 restirTemporal(
-    uint2 pixelCoord,
-    uint2 screenSize,
-    float3 normal,
-    float3 viewDir,
-    float3 worldPos,
-    float roughness,
-    float metalness,
-    float3 albedo,
-    inout uint rngState)
-{
-    uint reservoirIndex = pixelCoord.x + pixelCoord.y * screenSize.x;
-
-    Reservoir r = createReservoir();
-
-    // 1. Initial candidate
-    reservoirAddConfidence(r, 1.0);
-    SamplingResult prop = sample_mis(normal, viewDir, worldPos, roughness, metalness, albedo, rngState);
-    if (prop.isValid)
-    {
-        float3 Li = traceRadiance(worldPos, prop.direction, rngState);
-        float3 f = brdf_ggx(normal, viewDir, prop.direction, roughness, metalness, albedo);
-        float pHat = restirTarget(f, Li);
-        float weight = pHat / prop.pdf;
-        reservoirAddSample(r, prop.direction, f, Li, pHat, weight, rngState);
-    }
-
-    // 2. Temporal reuse
-    float2 currentUv = (float2(pixelCoord) + 0.5) / float2(screenSize);
-    float2 motion = velocityBuffer.SampleLevel(currentUv, 0).rg;
-    float2 prevUv = currentUv + motion;
-    if (all(prevUv >= 0.0) && all(prevUv < 1.0))
-    {
-        // Load previous reservoir
-        uint2 prevPixel = uint2(prevUv * float2(screenSize));
-        uint prevIndex = prevPixel.x + prevPixel.y * screenSize.x;
-        PackedReservoir prev = loadReservoir(sceneData.reservoirParity, prevIndex);
-
-        // Rejection heuristic
-        float distToCam = length(worldPos - sceneData.cameraPos);
-        bool sameSurface = prev.M > 0.0 && prev.W > 0.0
-            && dot(prev.normal, normal) > RESTIR_REUSE_NORMAL_THRESHOLD
-            && distance(prev.position, worldPos) < RESTIR_REUSE_POS_THRESHOLD * distToCam;
-
-        // Combine
-        if (sameSurface)
-        {
-            float confidence = min(prev.M, RESTIR_M_CAP);
-            float3 fPrev = brdf_ggx(normal, viewDir, prev.wi, roughness, metalness, albedo);
-            float pHatPrev = restirTarget(fPrev, prev.Li);
-            float weightPrev = pHatPrev * prev.W * confidence;
-
-            reservoirAddConfidence(r, confidence);
-            reservoirAddSample(r, prev.wi, fPrev, prev.Li, pHatPrev, weightPrev, rngState);
-        }
-    }
-
-    // 3. Store the combined reservoir for the next frame
-    PackedReservoir packed = packReservoir(r, worldPos, normal);
-    storeReservoir(sceneData.reservoirParity, reservoirIndex, packed);
-
-    // 4. Shade with the selected sample: Lo = f(y) * Li(y) * W
-    return r.f * r.Li * packed.W;
-}
-#endif
 
 [shader("raygeneration")]
 void main()
@@ -172,35 +87,61 @@ void main()
     float3 normalizedDir = normalize(dir);
     float3 worldPos = origin.xyz + dir * depth;
 
+    uint pixelId = pixelCoord.x + pixelCoord.y * screenSize.x;
+
     // Render sky directly if no geometry
     if (depth >= far - 0.1)
     {
         float3 skyColor = getSkyLight(normalizedDir);
         renderTarget[pixelCoord] = float4(skyColor, 1.0);
+#if SAMPLING_MODE == SAMPLING_MODE_RESTIR
+        // Leave an empty reservoir
+        storeReservoir(sceneData.reservoirParity, pixelId, emptyPackedReservoir());
+#endif
+        return;
+    }
+
+    // Handle emissive surfaces
+    if (isEmissiveAlbedo(albedo.rgb))
+    {
+        renderTarget[pixelCoord] = float4(EMISSIVE_RADIANCE, 1.0);
+#if SAMPLING_MODE == SAMPLING_MODE_RESTIR
+        storeReservoir(sceneData.reservoirParity, pixelId, emptyPackedReservoir());
+#endif
         return;
     }
 
     normal = clampNormalToView(normal, -normalizedDir);
-
-    uint pixelId = pixelCoord.x + pixelCoord.y * screenSize.x;
-    uint rngState = hash(pixelId + pushConstants.rng);
+    uint rngState = hash(pixelId) ^ hash(pushConstants.rng);
 
 #if SAMPLING_MODE == SAMPLING_MODE_RESTIR
 
-    float3 currentColor = restirTemporal(
-        pixelCoord,
-        screenSize,
-        normal,
-        -normalizedDir,
-        worldPos,
-        roughness,
-        metalness,
-        albedo.rgb,
-        rngState
-    );
+    Surface q;
+    q.position = worldPos;
+    q.normal = normal;
+    q.albedo = albedo.rgb;
+    q.roughness = roughness;
+    q.metalness = metalness;
+    q.wo = normalize(sceneData.cameraPos - worldPos);
 
-    renderTarget[pixelCoord] = float4(currentColor, 1.0);
+    float qDepth = distance(sceneData.cameraPos, worldPos);
+    
+    int2 prevPixel = reprojectPixel(pixelCoord, screenSize);
 
+    Reservoir current = generateCandidate(q, rngState);
+    Reservoir temporal = temporalReuse(q, qDepth, current, prevPixel, screenSize, rngState);
+
+    // Only the temporal result is fed forward
+    storeReservoir(sceneData.reservoirParity, pixelId, packReservoir(temporal, q, qDepth));
+
+#if RESTIR_SPATIAL_REUSE
+    Reservoir final = spatialReuse(q, qDepth, temporal, prevPixel, screenSize, rngState);
+#else
+    Reservoir final = temporal;
+#endif
+
+    renderTarget[pixelCoord] = float4(shade(q, final), 1.0);
+    return;
 #else
 
     int spp = max(sceneData.spp, 1);
@@ -208,9 +149,6 @@ void main()
 
     for (int i = 0; i < spp; i++)
     {
-        float3 giRayDir = float3(0, 0, 0);
-        float pdf = 0.0;
-        bool isValidSample = false;
         float3 brdfValue = float3(0, 0, 0);
 
 #if SAMPLING_MODE == SAMPLING_MODE_REFERENCE
@@ -220,7 +158,7 @@ void main()
             worldPos, 
             roughness, 
             metalness, 
-            albedo.rgb, 
+            albedo.rgb,
             rngState
         );
 #elif SAMPLING_MODE == SAMPLING_MODE_RIS
@@ -247,26 +185,19 @@ void main()
         );
 #endif // SAMPLING_MODE == SAMPLING_MODE_REFERENCE
 
-        // Use only valid samples
-        if (result.isValid && result.pdf > 0.0)
-        {
-            giRayDir = result.direction;
-            pdf = result.pdf;
-        }
-        else
+        if (!result.isValid || result.pdf <= 0.0)
         {
             continue;
         }
 
-        float sampleWeight = 1.0 / pdf;
-        float3 tracedColor = traceRadiance(worldPos, giRayDir, rngState);
+        float3 tracedColor = traceRadiance(worldPos, result.direction, rngState);
 
 #if SAMPLING_MODE != SAMPLING_MODE_RIS
         // RIS already computed the BRDF
-        brdfValue = brdf_ggx(normal, -normalizedDir, giRayDir, roughness, metalness, albedo.rgb);
+        brdfValue = brdf_ggx(normal, -normalizedDir, result.direction, roughness, metalness, albedo.rgb);
 #endif // SAMPLING_MODE != SAMPLING_MODE_RIS
 
-        float3 sampleContribution = tracedColor * brdfValue * sampleWeight;
+        float3 sampleContribution = result.weight * ((tracedColor * brdfValue) / result.pdf);
 
         giColor += sampleContribution;
     }

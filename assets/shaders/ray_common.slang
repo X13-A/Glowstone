@@ -1,25 +1,27 @@
+#pragma once
+
 // #============================================#
 // # Constants and defines
 // #============================================#
 
 static float PI = 3.14159265359;
 static float3 SUN_DIR = normalize(-float3(0.5, 1, 0.5));
-static float SUN_ANGULAR_RADIUS = 0.0873f; // Actual sun is ~0.5 degrees. 10x here for soft shadows
+static float SUN_ANGULAR_RADIUS = 0.0873f; // Actual sun is ~0.5 degrees. 10x here for softer shadows
 static float3 SUN_COLOR = float3(15.0, 12.0, 8.0) * 100.0;
-// static float3 SUN_COLOR = float3(10.0, 10.0, 10.0) * 50.0;
 static float3 SKY_COLOR = float3(62.0 / 255.0, 105.0 / 255.0, 196.0 / 255.0) * 2;
+
+// FIXME: Emission hack
+static float3 EMISSIVE_RADIANCE = float3(1.0, 1.0, 1.0) * 10.0;
+static float EMISSIVE_ALBEDO_EPSILON = 0.01;
 
 #define SAMPLING_MODE_REFERENCE 0
 #define SAMPLING_MODE_MIS 1
 #define SAMPLING_MODE_RIS 2
 #define SAMPLING_MODE_RESTIR 3
 
-// Confidence cap bounding the temporal history weight
-#define RESTIR_M_CAP 10.0
-
-// Rejection heuristics for reservoirs
-#define RESTIR_REUSE_NORMAL_THRESHOLD 0.9  // cos of max normal deviation
-#define RESTIR_REUSE_POS_THRESHOLD 0.02    // fraction of camera distance
+// #============================================#
+// # Etc
+// #============================================#
 
 float3 getSkyLight(float3 rayDir)
 {
@@ -28,6 +30,16 @@ float3 getSkyLight(float3 rayDir)
     float sunDot = max(0.0, dot(rayDir, sunDir) - cosSunRadius);
     float normalizer = 1.0 / (1.0 - cosSunRadius);
     return SKY_COLOR + SUN_COLOR * sunDot * normalizer;
+}
+
+bool isEmissiveAlbedo(float3 albedo)
+{
+    return all(albedo >= 1.0 - EMISSIVE_ALBEDO_EPSILON);
+}
+
+bool isValidFloat3(float3 c)
+{
+    return !(any(isnan(c)) || any(isinf(c)));
 }
 
 // #============================================#
@@ -43,7 +55,24 @@ struct RayPayload
     int depth;
     int maxDepth;
     uint rngState;
+    float3 normal; // Shading normal at hitpoint (undefined on a miss)
+    float3 albedo; // Albedo at hitpoint         (undefined on a miss)
 };
+
+RayPayload createRayPayload(float3 origin)
+{
+    RayPayload payload;
+    payload.color = float3(0, 0, 0);
+    payload.t = 0.0;
+    payload.hitGeometry = false;
+    payload.pos = origin;
+    payload.depth = 0;
+    payload.maxDepth = 0;
+    payload.rngState = 0;
+    payload.normal = float3(0, 0, 0);
+    payload.albedo = float3(0, 0, 0);
+    return payload;
+}
 
 struct PushConstants
 {
@@ -71,127 +100,9 @@ struct SamplingResult
 {
     float3 direction;
     float pdf;
+    float weight;
     bool isValid;
 };
-
-// #============================================#
-// # Reservoirs
-// #============================================#
-
-// Working reservoir
-struct Reservoir
-{
-    float3 wi;   // Incoming light direction
-    float3 f;    // BRDF value f(wo, wi) for selected direction
-    float3 Li;   // Incoming radiance along wi
-    float pHat;  // Target function value of the selected sample
-    float wSum;  // Running sum of resampling weights
-    float M;     // Confidence / effective proposal count
-    bool hasValidSample;
-};
-
-// Screen-space packed reservoir
-// Must match PackedReservoir in RayTracingPipeline.hpp
-struct PackedReservoir
-{
-    float3 wi;        // Incoming lightdirection
-    float M;          // Confidence / effective proposal count
-    float3 Li;        // Incoming radiance along wi
-    float W;          // Unbiased contribution weight
-    float3 position;  // World-space position
-    float pad0;
-    float3 normal;    // World-space normal
-    float pad1;
-};
-
-Reservoir createReservoir()
-{
-    Reservoir r;
-    r.wi = float3(0, 0, 0);
-    r.f = float3(0, 0, 0);
-    r.Li = float3(0, 0, 0);
-    r.pHat = 0.0;
-    r.wSum = 0.0;
-    r.M = 0.0;
-    r.hasValidSample = false;
-    return r;
-}
-
-PackedReservoir createPackedReservoir()
-{
-    PackedReservoir p;
-    p.wi = float3(0, 0, 0);
-    p.M = 0.0;
-    p.Li = float3(0, 0, 0);
-    p.W = 0.0;
-    p.position = float3(0, 0, 0);
-    p.pad0 = 0.0;
-    p.normal = float3(0, 0, 0);
-    p.pad1 = 0.0;
-    return p;
-}
-
-void reservoirAddConfidence(inout Reservoir r, float confidence)
-{
-    r.M += confidence;
-}
-
-// Propose a sample to the weighted-reservoir selection
-void reservoirAddSample(
-    inout Reservoir r,
-    float3 wi,
-    float3 f,
-    float3 Li,
-    float pHat,
-    float weight,
-    inout uint rngState)
-{
-    r.wSum += weight;
-
-    if (rngFloat(rngState) * r.wSum < weight)
-    {
-        r.wi = wi;
-        r.f = f;
-        r.Li = Li;
-        r.pHat = pHat;
-        r.hasValidSample = true;
-    }
-}
-
-// Unbiased contribution weight of the selected sample
-float reservoirWeight(Reservoir r)
-{
-    if (!r.hasValidSample || r.M <= 0.0 || r.pHat <= 0.0)
-    {
-        return 0.0;
-    }
-
-    return r.wSum / (r.M * r.pHat);
-}
-
-// Pack reservoir for GPU buffer
-PackedReservoir packReservoir(Reservoir r, float3 position, float3 normal)
-{
-    PackedReservoir p = createPackedReservoir();
-    p.wi = r.wi;
-    p.M = r.M;
-    p.Li = r.Li;
-    p.W = reservoirWeight(r);
-    p.position = position;
-    p.normal = normal;
-    return p;
-}
-
-// Target function p_hat: luminance of the outgoing contribution
-float restirTarget(float3 f, float3 Li)
-{
-    return luminance(f * Li);
-}
-
-bool isValidFloat3(float3 c)
-{
-    return !(any(isnan(c)) || any(isinf(c)));
-}
 
 // #============================================#
 // # Sampling functions
@@ -210,6 +121,7 @@ SamplingResult sample_reference(
     result.direction = sample_uniform(normal, rngState);
     result.pdf = sample_uniform_pdf();
     result.isValid = true;
+    result.weight = 1.0;
     return result;
 }
 
@@ -233,6 +145,9 @@ SamplingResult sample_mis(
     float probCone = 0.2;
     float probGGX = (1.0 - probCone) * specularWeight;
     float probCosine = (1.0 - probCone) * (1.0 - specularWeight);
+    // probCone = 0.0;
+    // probGGX = 0.0;
+    // probCosine = 1.0;
 
     // Randomly select sampling technique
     float xi = rngFloat(rngState);
@@ -249,22 +164,98 @@ SamplingResult sample_mis(
         result.direction = sample_ggx(normal, viewDir, roughness, rngState);
     }
 
+    if (dot(result.direction, result.direction) < 0.5)
+    {
+        return result;
+    }
+
     // Compute PDFs
     float3 halfVector = computeHalfVector(viewDir, result.direction);
     float conePdf = cone_sampling_pdf(result.direction, -SUN_DIR, SUN_ANGULAR_RADIUS);
     float ggxPdf = ggx_vndf_pdf(viewDir, result.direction, halfVector, normal, roughness);
     float cosinePdf = sample_cosine_pdf(normal, result.direction);
 
-    // Balance heuristic for MIS
     float combinedPdf = probCone * conePdf + probCosine * cosinePdf + probGGX * ggxPdf;
-    float NdotL = dot(normal, result.direction);
+    if (combinedPdf <= 0.0)
+    {
+        return result;
+    }
 
     result.pdf = combinedPdf;
+    result.weight = 1.0;
     result.isValid = true;
     return result;
 }
 
-// FIXME: Experimental, not really good in this case
+// FIXME: Experimental, kind of useless in current setup:
+// - No emissive surface sampling or anything worth running RIS
+// - Structures and functions are local to SAMPLING_MODE_RIS. 
+// - ReSTIR uses the dedicated structures in restir.slang
+struct RisReservoir
+{
+    float3 wi;   // Selected direction
+    float3 f;    // BRDF value
+    float pHat;  // Target function value
+    float wSum;  // Running sum of resampling weights
+    bool hasValidSample;
+};
+
+RisReservoir createRisReservoir()
+{
+    RisReservoir r;
+    r.wi = float3(0, 0, 0);
+    r.f = float3(0, 0, 0);
+    r.pHat = 0.0;
+    r.wSum = 0.0;
+    r.hasValidSample = false;
+    return r;
+}
+
+// Assumes the direction is unoccluded, has no idea about emissive surfaces
+float risTarget(float3 f, float3 wi)
+{
+    return luminance(f * getSkyLight(wi));
+}
+
+// Stream a candidate
+// Sampling PDF is known, so W_Xi is 1/pdf
+void risAddCandidate(
+    inout RisReservoir r,
+    float3 wi,
+    float3 f,
+    float pHat,
+    float misWeight,
+    float pdf,
+    inout uint rngState)
+{
+    if (pdf <= 0.0 || pHat <= 0.0)
+    {
+        return;
+    }
+
+    float weight = misWeight * pHat * (1.0 / pdf); // <=> m_i(X_i) * pHat(X_i) * W_Xi
+    r.wSum += weight;
+
+    if (rngFloat(rngState) * r.wSum < weight)
+    {
+        r.wi = wi;
+        r.f = f;
+        r.pHat = pHat;
+        r.hasValidSample = true;
+    }
+}
+
+// Unbiased contribution weight of selected sample
+float risWeight(RisReservoir r)
+{
+    if (!r.hasValidSample || r.pHat <= 0.0)
+    {
+        return 0.0;
+    }
+
+    return r.wSum / r.pHat;
+}
+
 SamplingResult sample_ris(
     float3 normal,
     float3 viewDir,
@@ -281,7 +272,10 @@ SamplingResult sample_ris(
     result.pdf = 0.0;
     brdfValueOut = float3(0, 0, 0);
 
-    Reservoir reservoir = createReservoir();
+    RisReservoir reservoir = createRisReservoir();
+
+    // All candidates are identically distributed, so m_i = 1/M
+    float misWeight = 1.0 / float(max(numCandidates, 1));
 
     // Generate M candidates
     for (int i = 0; i < numCandidates; i++)
@@ -296,37 +290,29 @@ SamplingResult sample_ris(
             rngState
         );
 
-        reservoirAddConfidence(reservoir, 1.0);
-
         if (!candidate.isValid || candidate.pdf <= 0.0)
         {
             continue;
         }
 
         // Evaluate target function
-        // NOTE: Assumes the candidate is visible and uses environment radiance directly
-        float3 Li = getSkyLight(candidate.direction);
+        // NOTE: Assumes the candidate is visible
         float3 f = brdf_ggx(normal, viewDir, candidate.direction, roughness, metalness, albedo);
-        float pHat = restirTarget(f, Li);
-
-        if (pHat <= 0.0)
-        {
-            continue;
-        }
-
-        float risWeight = pHat / candidate.pdf;
-        reservoirAddSample(reservoir, candidate.direction, f, Li, pHat, risWeight, rngState);
+        float pHat = risTarget(f, candidate.direction);
+        risAddCandidate(reservoir, candidate.direction, f, pHat, misWeight, candidate.pdf, rngState);
     }
 
-    float W = reservoirWeight(reservoir);
+    float W = risWeight(reservoir);
     if (W <= 0.0)
     {
         return result;
     }
 
+    // The unbiased contribution weight replaces 1/pdf for the selected sample
     result.direction = reservoir.wi;
-    result.pdf = 1.0 / W;
+    result.pdf = 1.0;
     result.isValid = true;
+    result.weight = W;
     brdfValueOut = reservoir.f;
 
     return result;
@@ -518,14 +504,15 @@ float3 sample_uniform(const float3 normal, inout uint seed)
 float ggx_ndf(float3 normal, float3 halfVector, float roughness)
 {
     float alpha = roughness * roughness;
-    
+    float alpha2 = alpha * alpha;
+
     float NdotH = max(dot(normal, halfVector), 0.0);
     float NdotH2 = NdotH * NdotH;
-    
-    float denom = (NdotH2 * (alpha - 1.0) + 1.0);
+
+    float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-    
-    return alpha / max(denom, 0.0001);
+
+    return alpha2 / max(denom, 0.0001);
 }
 
 // TODO: double check formulas

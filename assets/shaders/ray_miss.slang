@@ -12,4 +12,6 @@ void main(inout RayPayload payload)
     payload.t = 1e10;
     payload.pos = 0;
     payload.hitGeometry = false;
+    payload.normal = float3(0, 0, 0);
+    payload.albedo = float3(0, 0, 0);
 }

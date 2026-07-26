@@ -33,11 +33,11 @@ vk::SurfaceFormatKHR Swapchain::chooseSwapSurfaceFormat(const std::vector<vk::Su
 
 vk::PresentModeKHR Swapchain::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes)
 {
-    for (const vk::PresentModeKHR& availablePresentMode : availablePresentModes)
+    for (vk::PresentModeKHR preferredPresentMode : { vk::PresentModeKHR::eImmediate, vk::PresentModeKHR::eMailbox })
     {
-        if (availablePresentMode == vk::PresentModeKHR::eMailbox)
+        if (std::find(availablePresentModes.begin(), availablePresentModes.end(), preferredPresentMode) != availablePresentModes.end())
         {
-            return availablePresentMode;
+            return preferredPresentMode;
         }
     }
 

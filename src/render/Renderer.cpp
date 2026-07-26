@@ -20,6 +20,7 @@ void Renderer::init(const Context& context, const Swapchain& swapChainManager)
 {
     varianceCompute.init(context, swapChainManager.extent.width, swapChainManager.extent.height);
     denoisingPass.init(context, swapChainManager.extent.width, swapChainManager.extent.height);
+    gpuTimer.init(context);
     createSyncObjects(context, swapChainManager);
 }
 
@@ -58,6 +59,8 @@ void Renderer::recordCommandBuffer(int nativeWidth, int nativeHeight, int scaled
     vk::CommandBuffer commandBuffer = commandBufferManager.commandBuffers[currentFrame];
 
     commandBuffer.begin(beginInfo);
+
+    gpuTimer.begin(commandBuffer, currentFrame);
 
     graphicsPipeline.geometryPipeline.recordDrawCommands(scaledWidth, scaledHeight, models, commandBuffer, currentFrame);
 
@@ -110,6 +113,8 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
     // Sync
     context.device.resetFences(inFlightFences[currentFrame]);
     commandBufferManager.commandBuffers[currentFrame].reset();
+
+    gpuTimer.resolve(context, currentFrame);
 
     // Update uniforms
     updateUniformBuffers(scaledWidth, scaledHeight, camera, models, fullScreenQuad, swapChainManager, graphicsPipeline.rtPipeline, currentFrame);
@@ -252,6 +257,7 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
     }
 
     // End and submit
+    gpuTimer.end(commandBuffer, currentFrame);
     commandBuffer.end();
 
     vk::SubmitInfo submitInfo{};
@@ -348,6 +354,7 @@ void Renderer::cleanup(const Context& context)
 {
     varianceCompute.cleanup(context);
     denoisingPass.cleanup(context);
+    gpuTimer.cleanup(context);
     
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {

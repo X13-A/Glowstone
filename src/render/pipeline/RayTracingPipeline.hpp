@@ -26,18 +26,17 @@ struct SceneData
 };
 
 // Screen-space reservoir persisted across frames
-// Must match PackedReservoir in ray_common.slang
-// TODO: Define only once in shared header
+// Must match PackedReservoir in restir.slang
 struct PackedReservoir
 {
-    glm::vec3 wi;       // Selected incoming direction (omega_i)
-    float M;            // Confidence / effective proposal count
-    glm::vec3 Li;       // Incoming radiance along wi
-    float W;            // Unbiased contribution weight
-    glm::vec3 position; // World-space position of the owning surface
-    float pad0;
-    glm::vec3 normal;   // World-space normal of the owning surface
-    float pad1;
+    glm::vec3 y_position;
+    uint32_t y_flags;
+    glm::vec3 y_normal;
+    float W;
+    glm::vec3 y_le;
+    uint32_t M;
+    glm::vec3 q_normal;
+    float q_depth;
 };
 
 struct InstanceData

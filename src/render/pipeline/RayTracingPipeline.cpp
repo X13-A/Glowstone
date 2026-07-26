@@ -219,10 +219,12 @@ void RayTracingPipeline::handleResize(const Context& context, uint32_t width, ui
     descriptorWrites.push_back(reservoirWriteB);
 
     // Motion vectors
+    // Point sampled: filtering motion vectors across a depth discontinuity blends two
+    // unrelated velocities into one that points nowhere
     vk::DescriptorImageInfo velocityInfo{};
     velocityInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     velocityInfo.imageView = velocityImageView;
-    velocityInfo.sampler = globalTextureSampler;
+    velocityInfo.sampler = pointTextureSampler;
 
     vk::WriteDescriptorSet velocityWrite{};
     velocityWrite.dstSet = descriptorSet;
@@ -917,10 +919,12 @@ void RayTracingPipeline::writeDescriptorSet(const Context& context, vk::ImageVie
     descriptorWrites.push_back(reservoirWriteB);
 
     // Motion vectors
+    // Point sampled: filtering motion vectors across a depth discontinuity blends two
+    // unrelated velocities into one that points nowhere
     vk::DescriptorImageInfo velocityInfo{};
     velocityInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     velocityInfo.imageView = velocityImageView;
-    velocityInfo.sampler = globalTextureSampler;
+    velocityInfo.sampler = pointTextureSampler;
 
     vk::WriteDescriptorSet velocityWrite{};
     velocityWrite.dstSet = descriptorSet;

@@ -7,7 +7,6 @@
 #include "render/Renderer.hpp"
 #include "app/Window.hpp"
 #include "input/Input.hpp"
-#include <chrono>
 #include "entt.hpp"
 #include "scene/Camera.hpp"
 #include "input/Events.hpp"
@@ -45,11 +44,14 @@ private:
 
     assets::ShaderCompiler shaderCompiler{ assets::ShaderManifest::loadFromFile(core::SHADERS_MANIFEST) };
 
-    std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
+    double frameTimeAccumulator = 0.0;
+    uint32_t frameTimeSamples = 0;
+    double lastTitleUpdate = 0.0;
 
     int nativeWidth, nativeHeight;
     int scaledWidth, scaledHeight;
     bool frameAccumulationEnabled = true;
+    bool frameRateCapEnabled = false;
 
 public:
     void run();
@@ -71,7 +73,9 @@ private:
 
     void mainLoop();
 
-    void updateFPS();
+    void updateWindowTitle();
+
+    void limitFrameRate(double frameStart);
 
     void cleanup();
 };

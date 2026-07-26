@@ -2,6 +2,7 @@ build/
 out/
 .vs/
 .vscode/
+assets/models/
 
 # Claude
 CLAUDE.md

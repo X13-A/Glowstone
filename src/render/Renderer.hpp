@@ -7,6 +7,7 @@
 #include "render/pipeline/GraphicsPipeline.hpp"
 #include "gpu/Swapchain.hpp"
 #include "gpu/CommandBuffers.hpp"
+#include "gpu/GpuTimer.hpp"
 #include "scene/Model.hpp"
 #include "render/FullScreenQuad.hpp"
 #include "render/pass/VariancePass.hpp"
@@ -45,7 +46,10 @@ public:
     void updateUniformBuffers(int scaledWidth, int scaledHeight, const Camera& camera, const std::vector<Model>& models, const FullScreenQuad& fullScreenQuad, const Swapchain& swapChain, RayTracingPipeline& rtPipeline, uint32_t currentImage);
     void cleanup(const Context& context);
 
+    double getGpuFrameTimeMs() const { return gpuTimer.getElapsedMs(); }
+
 private:
+    GpuTimer gpuTimer;
     glm::mat4 previousViewProj = glm::mat4(1.0f); // Used for motion vectors
     uint32_t reservoirFrameIndex = 0; // Used for "ping-ponging" the reservoir buffers
 };
