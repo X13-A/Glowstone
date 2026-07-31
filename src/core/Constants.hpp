@@ -9,6 +9,8 @@
 namespace vkrt {
 namespace core {
 
+extern const uint32_t VULKAN_API_VERSION;
+
 extern const int MAX_FRAMES_IN_FLIGHT;
 extern const uint32_t GLFW_WINDOW_WIDTH;
 extern const uint32_t GLFW_WINDOW_HEIGHT;

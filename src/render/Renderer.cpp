@@ -78,7 +78,7 @@ void Renderer::triggerResize(GLFWwindow* window, const Context& context, Swapcha
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
 
-    WindowResizeEvent e;
+    RequestResourceResizeEvent e;
     e.nativeWidth = width;
     e.nativeHeight = height;
     e.scaledWidth = static_cast<int> ((float)width * Settings::renderScale);
@@ -169,7 +169,7 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
         uint32_t srcWidth, srcHeight;
 
         // Denoised
-        if (denoisingEnabled)
+        if (Settings::denoisingEnabled)
         {
             vk::ImageMemoryBarrier rtImageBarrier{};
             rtImageBarrier.oldLayout = vk::ImageLayout::eGeneral;
@@ -193,7 +193,7 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
             srcHeight = scaledHeight;
         }
         // Variance
-        else if (displayVariance)
+        else if (Settings::displayVariance)
         {
             varianceCompute.compute(commandBuffer, graphicsPipeline.rtPipeline.getStorageImageView(), graphicsPipeline.rtPipeline.getStorageImage());
 
@@ -204,10 +204,11 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
             srcWidth = scaledWidth;
             srcHeight = scaledHeight;
 
-            if (displayVarianceSum)
+            if (Settings::printVarianceSum)
             {
                 float varianceSum = varianceCompute.sumVarianceTexture(context, commandBufferManager);
                 std::cout << "Total Variance: " << varianceSum << std::endl;
+                Settings::printVarianceSum = false;
             }
         }
         // Raw ray-traced image
@@ -254,6 +255,11 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
             vk::Filter::eNearest
         );
 
+    }
+
+    if (overlayPass)
+    {
+        overlayPass->record(commandBuffer, imageIndex);
     }
 
     // End and submit

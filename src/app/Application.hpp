@@ -5,6 +5,7 @@
 #include "render/pipeline/GraphicsPipeline.hpp"
 #include "scene/Model.hpp"
 #include "render/Renderer.hpp"
+#include "render/ui/EngineUI.hpp"
 #include "app/Window.hpp"
 #include "input/Input.hpp"
 #include "entt.hpp"
@@ -41,6 +42,7 @@ private:
     std::vector<BLASInstance> BLASintances;
 
     Renderer renderer;
+    EngineUI engineUI;
 
     assets::ShaderCompiler shaderCompiler{ assets::ShaderManifest::loadFromFile(core::SHADERS_MANIFEST) };
 
@@ -50,8 +52,7 @@ private:
 
     int nativeWidth, nativeHeight;
     int scaledWidth, scaledHeight;
-    bool frameAccumulationEnabled = true;
-    bool frameRateCapEnabled = false;
+    bool uiFocused = false;
 
 public:
     void run();
@@ -65,11 +66,21 @@ public:
 private:
     void initVulkan();
 
+    void handleSceneInputs();
+
+    void setUiFocused(bool focused);
+
     void reloadShaders();
 
     void setSamplingMode(int mode);
 
-    void handleWindowResize(const WindowResizeEvent& e);
+    void handleResourceResizeRequest(const RequestResourceResizeEvent& e);
+
+    void handleShaderReloadRequest(const RequestShaderReloadEvent& e);
+
+    void handleSamplingModeChangeRequest(const RequestSamplingModeChangeEvent& e);
+
+    void handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e);
 
     void mainLoop();
 

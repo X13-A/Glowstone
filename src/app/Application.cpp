@@ -30,7 +30,7 @@ constexpr int FRAME_RATE_CAP = 60;
 constexpr double FRAME_RATE_CAP_MARGIN = 0.002;
 }
 
-void Application::handleWindowResize(const WindowResizeEvent& e)
+void Application::handleResourceResizeRequest(const RequestResourceResizeEvent& e)
 {
     if (e.scaledWidth <= 0 || e.scaledHeight <= 0 || e.nativeWidth <= 0 || e.nativeHeight <= 0)
     {
@@ -57,6 +57,7 @@ void Application::handleWindowResize(const WindowResizeEvent& e)
 
     renderer.varianceCompute.handleResize(context, e.scaledWidth, e.scaledHeight);
     renderer.denoisingPass.handleResize(context, e.scaledWidth, e.scaledHeight);
+    engineUI.handleResize(context, swapChainManager);
     renderer.denoisingPass.updateDescriptors(context,
         graphicsPipelineManager.rtPipeline.getStorageImageView(),
         renderer.denoisingPass.getDenoisedImagePreviousView(),
@@ -89,7 +90,10 @@ void Application::run()
     camera.transform.setTransformMatrix(glm::inverse(glm::lookAt(glm::vec3(0, 0, -5), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0))));
     camera.transform.setScale(glm::vec3(1));
 
-    EventManager::get().sink<WindowResizeEvent>().connect <&Application::handleWindowResize>(this);
+    EventManager::get().sink<RequestResourceResizeEvent>().connect<&Application::handleResourceResizeRequest>(this);
+    EventManager::get().sink<RequestShaderReloadEvent>().connect<&Application::handleShaderReloadRequest>(this);
+    EventManager::get().sink<RequestSamplingModeChangeEvent>().connect<&Application::handleSamplingModeChangeRequest>(this);
+    EventManager::get().sink<RequestRenderScaleChangeEvent>().connect<&Application::handleRenderScaleChangeRequest>(this);
     initVulkan();
     mainLoop();
     cleanup();
@@ -147,6 +151,9 @@ void Application::initVulkan()
     // Renderer
     renderer.init(context, swapChainManager);
 
+    engineUI.init(context, swapChainManager, windowManager.getWindow());
+    renderer.setOverlayPass(&engineUI);
+
     // Update descriptors after RT & G-buffer are initialized
     renderer.denoisingPass.updateDescriptors(context,
         graphicsPipelineManager.rtPipeline.getStorageImageView(),
@@ -163,9 +170,36 @@ void Application::initVulkan()
     std::cout << "VK initialization finished !" << std::endl;
 }
 
+void Application::setUiFocused(bool focused)
+{
+    uiFocused = focused;
+    glfwSetInputMode(windowManager.getWindow(), GLFW_CURSOR, focused ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+    inputManager.setMouseLookEnabled(!focused);
+    engineUI.setInputEnabled(focused);
+}
+
 void Application::handleInputs()
 {
+    if (inputManager.isKeyJustPressed(KeyboardKey::Tab))
+    {
+        setUiFocused(!uiFocused);
+    }
+
+    if (!uiFocused)
+    {
+        handleSceneInputs();
+    }
+
+    if (!Settings::frameAccumulation)
+    {
+        Time::resetFrameCount();
+    }
+}
+
+void Application::handleSceneInputs()
+{
     controls->update(inputManager);
+
     if (inputManager.isKeyJustPressed(KeyboardKey::R))
     {
         if (inputManager.isKeyPressed(KeyboardKey::LCTRL))
@@ -176,120 +210,29 @@ void Application::handleInputs()
         {
             Time::resetFrameCount();
             Settings::displayRayTracing = !Settings::displayRayTracing;
-            std::cout << "Ray tracing enabled: " << Settings::displayRayTracing << std::endl;
         }
     }
-    if (inputManager.isKeyJustPressed(KeyboardKey::T))
-    {
-        Settings::renderScale = std::max(std::fmod(Settings::renderScale, 1.0f) + 0.1, 0.1);
-        std::cout << "New render scale: " << Settings::renderScale << std::endl;
+}
 
-        WindowResizeEvent e;
-        glfwGetFramebufferSize(windowManager.getWindow(), &e.nativeWidth, &e.nativeHeight);
-        e.scaledWidth = static_cast<int> ((float)nativeWidth * Settings::renderScale);
-        e.scaledHeight = static_cast<int> ((float)nativeHeight * Settings::renderScale);
-        EventManager::get().trigger(e);
-    }
-    int sppOffset = 1;
-    if (inputManager.isKeyPressed(KeyboardKey::O))
-    {
-        Time::resetFrameCount();
-        Settings::spp = std::max(1, (int) Settings::spp - sppOffset);
-        std::cout << "Samples per pixel: " << Settings::spp << std::endl;
-    }
-    if (inputManager.isKeyPressed(KeyboardKey::P))
-    {
-        Time::resetFrameCount();
-        Settings::spp = std::max(1, (int)Settings::spp + sppOffset);
-        std::cout << "Samples per pixel: " << Settings::spp << std::endl;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::F))
-    {
-        frameAccumulationEnabled = !frameAccumulationEnabled;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::K))
-    {
-        Time::resetFrameCount();
-        Settings::rt_recursion_depth -= 1;
-        Settings::rt_recursion_depth = std::clamp(Settings::rt_recursion_depth, 0, RT_MAX_RECURSION_DEPTH);
-        std::cout << "RT recursion depth: " << Settings::rt_recursion_depth << std::endl;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::L))
-    {
-        Time::resetFrameCount();
-        Settings::rt_recursion_depth += 1;
-        Settings::rt_recursion_depth = std::clamp(Settings::rt_recursion_depth, 0, RT_MAX_RECURSION_DEPTH);
-        std::cout << "RT recursion depth: " << Settings::rt_recursion_depth << std::endl;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::N))
-    {
-        setSamplingMode(Settings::samplingMode + 1);
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::B))
-    {
-        setSamplingMode(Settings::samplingMode - 1);
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::V))
-    {
-        Time::resetFrameCount();
-        Settings::risCandidates += 1;
-        std::cout << "RIS candidates: " << Settings::risCandidates << std::endl;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::C))
-    {
-        if (inputManager.isKeyPressed(KeyboardKey::LCTRL))
-        {
-            frameRateCapEnabled = !frameRateCapEnabled;
-            std::cout << "Frame rate cap: " << (frameRateCapEnabled ? std::to_string(FRAME_RATE_CAP) + " FPS" : "off") << std::endl;
-        }
-        else
-        {
-            Time::resetFrameCount();
-            Settings::risCandidates -= 1;
-            std::cout << "RIS candidates: " << Settings::risCandidates << std::endl;
-        }
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::B))
-    {
-        Time::resetFrameCount();
-        Settings::debugBool1 = !Settings::debugBool1;
-    }
-    if (inputManager.isKeyJustPressed(KeyboardKey::Y))
-    {
-        renderer.displayVariance = !renderer.displayVariance;
-        if (renderer.displayVariance)
-        {
-            std::cout << "Variance visualization enabled" << std::endl;
-        }
-        else
-        {
-            std::cout << "Variance visualization disabled" << std::endl;
-        }
-    }
+void Application::handleShaderReloadRequest(const RequestShaderReloadEvent& e)
+{
+    reloadShaders();
+}
 
-    renderer.displayVarianceSum = false;
-    if (inputManager.isKeyJustPressed(KeyboardKey::U))
-    {
-        renderer.displayVarianceSum = true;
-    }
+void Application::handleSamplingModeChangeRequest(const RequestSamplingModeChangeEvent& e)
+{
+    setSamplingMode(e.mode);
+}
 
-    if (inputManager.isKeyJustPressed(KeyboardKey::I))
-    {
-        renderer.denoisingEnabled = !renderer.denoisingEnabled;
-        if (renderer.denoisingEnabled)
-        {
-            std::cout << "Denoising enabled" << std::endl;
-        }
-        else
-        {
-            std::cout << "Denoising disabled" << std::endl;
-        }
-    }
+void Application::handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e)
+{
+    Settings::renderScale = e.scale;
 
-    if (!frameAccumulationEnabled)
-    {
-        Time::resetFrameCount();
-    }
+    RequestResourceResizeEvent resize;
+    glfwGetFramebufferSize(windowManager.getWindow(), &resize.nativeWidth, &resize.nativeHeight);
+    resize.scaledWidth = static_cast<int> ((float)resize.nativeWidth * Settings::renderScale);
+    resize.scaledHeight = static_cast<int> ((float)resize.nativeHeight * Settings::renderScale);
+    EventManager::get().trigger(resize);
 }
 
 void Application::reloadShaders()
@@ -337,6 +280,10 @@ void Application::mainLoop()
             inputManager.retrieveInputs(windowManager.getWindow());
             handleInputs();
 
+            engineUI.beginFrame(renderer.getGpuFrameTimeMs(), Time::deltaTime() * 1000.0);
+
+            EventManager::get().update();
+
             Scene::update();
             renderer.drawFrame(nativeWidth, nativeHeight, scaledWidth, scaledHeight, windowManager.getWindow(), context, swapChainManager, graphicsPipelineManager, commandBufferManager, camera, Scene::getModels(), fullScreenQuad);
 
@@ -368,7 +315,7 @@ void Application::updateWindowTitle()
 
     std::ostringstream title;
     title << GLFW_WINDOW_NAME << " - " << std::fixed << std::setprecision(2) << frameTimeAccumulator / frameTimeSamples << " ms";
-    if (frameRateCapEnabled)
+    if (Settings::frameRateCap)
     {
         title << " (capped " << FRAME_RATE_CAP << " FPS)";
     }
@@ -381,7 +328,7 @@ void Application::updateWindowTitle()
 
 void Application::limitFrameRate(double frameStart)
 {
-    if (!frameRateCapEnabled)
+    if (!Settings::frameRateCap)
     {
         return;
     }
@@ -423,13 +370,17 @@ void Application::cleanup()
     sceneTLAS.cleanup(context);
     controls->cleanup();
     delete controls;
-    EventManager::get().sink<WindowResizeEvent>().disconnect<&Application::handleWindowResize>(this);
+    EventManager::get().sink<RequestResourceResizeEvent>().disconnect<&Application::handleResourceResizeRequest>(this);
+    EventManager::get().sink<RequestShaderReloadEvent>().disconnect<&Application::handleShaderReloadRequest>(this);
+    EventManager::get().sink<RequestSamplingModeChangeEvent>().disconnect<&Application::handleSamplingModeChangeRequest>(this);
+    EventManager::get().sink<RequestRenderScaleChangeEvent>().disconnect<&Application::handleRenderScaleChangeRequest>(this);
     inputManager.cleanup();
+    engineUI.cleanup(context);
+    renderer.cleanup(context);
     swapChainManager.cleanup(context.device);
     Scene::cleanup(context.device);
     fullScreenQuad.cleanup(context.device);
     graphicsPipelineManager.cleanup(context.device);
-    renderer.cleanup(context);
     commandBufferManager.cleanup(context.device);
     DescriptorLayouts::cleanup(context.device);
     TextureManager::cleanup(context.device);

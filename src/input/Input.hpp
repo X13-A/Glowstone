@@ -60,6 +60,7 @@ private:
 	};
 	glm::vec2 lastMousePos;
 	bool firstMouseInput = true;
+	bool mouseLookEnabled = true;
 
 public:
 	Input();
@@ -69,6 +70,7 @@ public:
 	void update(GLFWwindow* window);
 	bool isKeyPressed(KeyboardKey key) const;
 	bool isKeyJustPressed(KeyboardKey key) const;
+	void setMouseLookEnabled(bool enabled);
 
 	void onMouseMove(const MouseMoveEvent& e);
 	void onMouseScroll(const MouseScrollEvent& e);

@@ -1,3 +1,4 @@
+#pragma once
 
 namespace vkrt {
 namespace core {
@@ -14,6 +15,12 @@ public:
     static bool debugBool1;
     static int risCandidates;
     static int samplingMode;
+
+    static bool frameAccumulation;
+    static bool frameRateCap;
+    static bool denoisingEnabled;
+    static bool displayVariance;
+    static bool printVarianceSum;
 };
 
 } // namespace core

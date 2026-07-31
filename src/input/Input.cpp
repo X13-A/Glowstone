@@ -42,8 +42,19 @@ void Input::retrieveInputs(GLFWwindow* window)
 	}
 }
 
-void Input::onMouseMove(const MouseMoveEvent& e) 
+void Input::setMouseLookEnabled(bool enabled)
 {
+	mouseLookEnabled = enabled;
+	firstMouseInput = true;
+}
+
+void Input::onMouseMove(const MouseMoveEvent& e)
+{
+	if (!mouseLookEnabled)
+	{
+		return;
+	}
+
 	if (firstMouseInput)
 	{
 		firstMouseInput = false;

@@ -20,10 +20,24 @@ struct MouseScrollEvent
     double xOffset, yOffset;
 };
 
-struct WindowResizeEvent
+struct RequestResourceResizeEvent
 {
     int nativeWidth, nativeHeight;
     int scaledWidth, scaledHeight;
+};
+
+struct RequestShaderReloadEvent
+{
+};
+
+struct RequestSamplingModeChangeEvent
+{
+    int mode;
+};
+
+struct RequestRenderScaleChangeEvent
+{
+    float scale;
 };
 
 } // namespace input

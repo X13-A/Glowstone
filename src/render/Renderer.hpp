@@ -12,6 +12,7 @@
 #include "render/FullScreenQuad.hpp"
 #include "render/pass/VariancePass.hpp"
 #include "render/pass/DenoisingPass.hpp"
+#include "render/OverlayPass.hpp"
 #include "scene/Camera.hpp"
 
 
@@ -32,12 +33,10 @@ public:
 
     VariancePass varianceCompute;
     DenoisingPass denoisingPass;
-    bool displayVariance = false;
-    bool displayVarianceSum = false;
-    bool denoisingEnabled = false;
 
 public:
     void init(const Context& context, const Swapchain& swapChainManager);
+    void setOverlayPass(OverlayPass* pass) { overlayPass = pass; }
     void createSyncObjects(const Context& context, const Swapchain& swapChainManager);
     void reloadShaders(const Context& context);
     void recordCommandBuffer(int nativeWidth, int nativeHeight, int scaledWidth, int scaledHeight, const Context& context, CommandBuffers& commandBufferManager, const Swapchain swapChainManager, GraphicsPipeline& graphicsPipeline, uint32_t imageIndex, uint32_t currentFrame, const std::vector<Model>& models, const FullScreenQuad& fullScreenQuad);
@@ -49,6 +48,7 @@ public:
     double getGpuFrameTimeMs() const { return gpuTimer.getElapsedMs(); }
 
 private:
+    OverlayPass* overlayPass = nullptr;
     GpuTimer gpuTimer;
     glm::mat4 previousViewProj = glm::mat4(1.0f); // Used for motion vectors
     uint32_t reservoirFrameIndex = 0; // Used for "ping-ponging" the reservoir buffers
