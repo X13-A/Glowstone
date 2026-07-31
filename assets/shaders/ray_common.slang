@@ -14,6 +14,8 @@ static float3 SKY_COLOR = float3(62.0 / 255.0, 105.0 / 255.0, 196.0 / 255.0) * 2
 static float3 EMISSIVE_RADIANCE = float3(1.0, 1.0, 1.0) * 10.0;
 static float EMISSIVE_ALBEDO_EPSILON = 0.01;
 
+static float MIN_ROUGHNESS = 0.04;
+
 #define SAMPLING_MODE_REFERENCE 0
 #define SAMPLING_MODE_MIS 1
 #define SAMPLING_MODE_RIS 2
@@ -40,6 +42,13 @@ bool isEmissiveAlbedo(float3 albedo)
 bool isValidFloat3(float3 c)
 {
     return !(any(isnan(c)) || any(isinf(c)));
+}
+
+// Conversion from perceptual roughness to the GGX alpha
+float ggx_alpha(float roughness)
+{
+    float r = max(roughness, MIN_ROUGHNESS);
+    return r * r;
 }
 
 // #============================================#
@@ -332,9 +341,7 @@ float3 sample_ggx(
 {
     float3 result = float3(0, 0, 0);
 
-    // Clamp roughness to avoid singularities
-    roughness = clamp(roughness, 0.04, 1.0);
-    float alpha = roughness * roughness;
+    float alpha = ggx_alpha(roughness);
 
     // Build tangent space basis
     float3 tangent, bitangent;
@@ -419,10 +426,9 @@ float sample_uniform_pdf()
 // TODO: double check formulas
 float ggx_vndf_pdf(float3 viewDir, float3 lightDir, float3 halfVector, float3 normal, float roughness)
 {
-    float alpha = roughness * roughness;
+    float alpha = ggx_alpha(roughness);
     float alpha2 = alpha * alpha;
 
-    float NdotH = max(dot(normal, halfVector), 0.0);
     float NdotV = max(dot(normal, viewDir), 0.0);
     float VdotH = max(dot(viewDir, halfVector), 0.0);
 
@@ -431,9 +437,7 @@ float ggx_vndf_pdf(float3 viewDir, float3 lightDir, float3 halfVector, float3 no
         return 0.0;
     }
 
-    float denom = (NdotH * NdotH * (alpha2 - 1.0) + 1.0);
-    float D = alpha2 / (PI * denom * denom);
-
+    float D = ggx_ndf(normal, halfVector, roughness);
     float G1 = ggx_smith_g1(viewDir, normal, alpha2);
 
     float pdf_h = (D * G1 * VdotH) / NdotV;
@@ -503,7 +507,7 @@ float3 sample_uniform(const float3 normal, inout uint seed)
 // TODO: double check formulas
 float ggx_ndf(float3 normal, float3 halfVector, float roughness)
 {
-    float alpha = roughness * roughness;
+    float alpha = ggx_alpha(roughness);
     float alpha2 = alpha * alpha;
 
     float NdotH = max(dot(normal, halfVector), 0.0);
@@ -512,7 +516,7 @@ float ggx_ndf(float3 normal, float3 halfVector, float roughness)
     float denom = (NdotH2 * (alpha2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
-    return alpha2 / max(denom, 0.0001);
+    return alpha2 / max(denom, 1e-12);
 }
 
 // TODO: double check formulas
@@ -534,7 +538,7 @@ float ggx_smith_g1(float3 v, float3 normal, float alpha2)
 // TODO: double check formulas
 float ggx_geometry_smith_correlated(float3 normal, float3 viewDir, float3 lightDir, float roughness)
 {
-    float alpha = roughness * roughness;
+    float alpha = ggx_alpha(roughness);
     float alpha2 = alpha * alpha;
     
     float NdotV = max(dot(normal, viewDir), 0.0);
@@ -570,9 +574,6 @@ float3 brdf_ggx(
     float metalness,
     float3 albedo)
 {
-    // Clamp roughness
-    // roughness = clamp(roughness, 0.01, 1.0);
-    
     float3 h = normalize(incomingDir + lightDir);
     float NdotL = max(dot(normal, lightDir), 0.0);
     float NdotV = max(dot(normal, incomingDir), 0.0);
