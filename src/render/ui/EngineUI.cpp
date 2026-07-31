@@ -185,32 +185,28 @@ void EngineUI::handleResize(const Context& context, const Swapchain& swapchain)
     ImGui_ImplVulkan_SetMinImageCount(static_cast<uint32_t>(swapchain.swapChainImages.size()));
 }
 
-EngineUI::SectionStats& EngineUI::findOrAddSection(const std::string& name)
-{
-    for (SectionStats& stats : sectionStats)
-    {
-        if (stats.name == name)
-        {
-            return stats;
-        }
-    }
-
-    return sectionStats.emplace_back(SectionStats{ name });
-}
-
 void EngineUI::pushSample(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs)
 {
+    const std::vector<GpuProfiler::Section>& sections = gpuProfiler.getSections();
+
     frameHistory[historyOffset] = static_cast<float>(gpuProfiler.getFrameTimeMs());
     cpuHistory[historyOffset] = static_cast<float>(cpuFrameTimeMs);
 
-    for (SectionStats& stats : sectionStats)
-    {
-        stats.history[historyOffset] = 0.0f;
-    }
+    // Mirrors the sections recorded last frame
+    sectionStats.resize(sections.size());
 
-    for (const GpuProfiler::Section& section : gpuProfiler.getSections())
+    for (size_t i = 0; i < sections.size(); i++)
     {
-        findOrAddSection(section.name).history[historyOffset] = static_cast<float>(section.elapsedMs);
+        SectionStats& stats = sectionStats[i];
+        const float elapsedMs = static_cast<float>(sections[i].elapsedMs);
+
+        if (stats.name != sections[i].name)
+        {
+            stats.name = sections[i].name;
+            stats.history.fill(elapsedMs);
+        }
+
+        stats.history[historyOffset] = elapsedMs;
     }
 
     historyOffset = (historyOffset + 1) % HISTORY_SIZE;
@@ -256,7 +252,6 @@ void EngineUI::buildRenderingSection()
     changed |= ImGui::SliderInt("Bounces", &Settings::rt_recursion_depth, 0, RT_MAX_RECURSION_DEPTH);
     changed |= ImGui::SliderInt("RIS candidates", &Settings::risCandidates, 1, RIS_CANDIDATES_MAX);
 
-    // Applied on release only: every change recreates the swapchain resources
     ImGui::SliderFloat("Render scale", &pendingRenderScale, RENDER_SCALE_MIN, RENDER_SCALE_MAX, "%.2f");
     if (ImGui::IsItemDeactivatedAfterEdit())
     {

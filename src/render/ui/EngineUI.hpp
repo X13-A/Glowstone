@@ -43,7 +43,6 @@ private:
     void destroyFramebuffers(const Context& context);
 
     void pushSample(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs);
-    SectionStats& findOrAddSection(const std::string& name);
     void buildPanel();
     void buildPerformanceSection() const;
     void buildRenderingSection();
