@@ -45,6 +45,21 @@ FetchContent_Declare(glfw
 
 FetchContent_MakeAvailable(glfw)
 
+# ---- Dear ImGui -------------------------------------------------------------
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/imgui")
+
+add_library(imgui STATIC
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp")
+
+target_include_directories(imgui PUBLIC "${IMGUI_DIR}" "${IMGUI_DIR}/backends")
+target_link_libraries(imgui PUBLIC Vulkan::Vulkan glfw)
+target_compile_definitions(imgui PUBLIC IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
+
 # ---- Sources ----------------------------------------------------------------
 file(GLOB_RECURSE GLOWSTONE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -63,7 +78,7 @@ target_include_directories(Glowstone PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party")
 
 # ---- Links ------------------------------------------------------------------
-target_link_libraries(Glowstone PRIVATE Vulkan::Vulkan glfw)
+target_link_libraries(Glowstone PRIVATE Vulkan::Vulkan glfw imgui)
 
 if(WIN32)
     target_compile_definitions(Glowstone PRIVATE
