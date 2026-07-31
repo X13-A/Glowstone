@@ -2,7 +2,6 @@ build/
 out/
 .vs/
 .vscode/
-assets/models/
 *.spv
 
 # Claude
