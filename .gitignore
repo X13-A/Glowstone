@@ -3,6 +3,7 @@ out/
 .vs/
 .vscode/
 assets/models/
+*.spv
 
 # Claude
 CLAUDE.md
