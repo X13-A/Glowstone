@@ -280,7 +280,7 @@ void Application::mainLoop()
             inputManager.retrieveInputs(windowManager.getWindow());
             handleInputs();
 
-            engineUI.beginFrame(renderer.getGpuFrameTimeMs(), Time::deltaTime() * 1000.0);
+            engineUI.beginFrame(renderer.getGpuProfiler(), Time::deltaTime() * 1000.0);
 
             EventManager::get().update();
 
@@ -304,7 +304,7 @@ void Application::mainLoop()
 
 void Application::updateWindowTitle()
 {
-    frameTimeAccumulator += renderer.getGpuFrameTimeMs();
+    frameTimeAccumulator += renderer.getGpuProfiler().getFrameTimeMs();
     frameTimeSamples++;
 
     double currentTime = Time::time();

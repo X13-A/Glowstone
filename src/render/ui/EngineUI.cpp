@@ -185,24 +185,54 @@ void EngineUI::handleResize(const Context& context, const Swapchain& swapchain)
     ImGui_ImplVulkan_SetMinImageCount(static_cast<uint32_t>(swapchain.swapChainImages.size()));
 }
 
-void EngineUI::pushSample(double gpuFrameTimeMs, double cpuFrameTimeMs)
+EngineUI::SectionStats& EngineUI::findOrAddSection(const std::string& name)
 {
-    gpuHistory[historyOffset] = static_cast<float>(gpuFrameTimeMs);
+    for (SectionStats& stats : sectionStats)
+    {
+        if (stats.name == name)
+        {
+            return stats;
+        }
+    }
+
+    return sectionStats.emplace_back(SectionStats{ name });
+}
+
+void EngineUI::pushSample(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs)
+{
+    frameHistory[historyOffset] = static_cast<float>(gpuProfiler.getFrameTimeMs());
     cpuHistory[historyOffset] = static_cast<float>(cpuFrameTimeMs);
+
+    for (SectionStats& stats : sectionStats)
+    {
+        stats.history[historyOffset] = 0.0f;
+    }
+
+    for (const GpuProfiler::Section& section : gpuProfiler.getSections())
+    {
+        findOrAddSection(section.name).history[historyOffset] = static_cast<float>(section.elapsedMs);
+    }
+
     historyOffset = (historyOffset + 1) % HISTORY_SIZE;
 }
 
 void EngineUI::buildPerformanceSection() const
 {
-    const float gpuAverage = average(gpuHistory);
+    const float gpuAverage = average(frameHistory);
     const float cpuAverage = average(cpuHistory);
-    const float plotRange = std::max(*std::max_element(gpuHistory.begin(), gpuHistory.end()) * PLOT_HEADROOM, PLOT_MIN_RANGE_MS);
+    const float plotRange = std::max(*std::max_element(frameHistory.begin(), frameHistory.end()) * PLOT_HEADROOM, PLOT_MIN_RANGE_MS);
 
     ImGui::SeparatorText("Performance");
     ImGui::Text("GPU  %6.2f ms  (%5.0f FPS)", gpuAverage, toFps(gpuAverage));
     ImGui::Text("CPU  %6.2f ms  (%5.0f FPS)", cpuAverage, toFps(cpuAverage));
-    ImGui::PlotLines("##gpuFrameTime", gpuHistory.data(), static_cast<int>(HISTORY_SIZE), static_cast<int>(historyOffset),
+    ImGui::PlotLines("##gpuFrameTime", frameHistory.data(), static_cast<int>(HISTORY_SIZE), static_cast<int>(historyOffset),
         "GPU", 0.0f, plotRange, ImVec2(PLOT_WIDTH, PLOT_HEIGHT));
+
+    for (const SectionStats& stats : sectionStats)
+    {
+        ImGui::TextDisabled("%-12s %6.2f ms", stats.name.c_str(), average(stats.history));
+    }
+
     ImGui::Checkbox("Cap frame rate", &Settings::frameRateCap);
 }
 
@@ -287,7 +317,7 @@ void EngineUI::buildPanel()
     ImGui::End();
 }
 
-void EngineUI::beginFrame(double gpuFrameTimeMs, double cpuFrameTimeMs)
+void EngineUI::beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs)
 {
     frameBuilt = visible;
     if (!frameBuilt)
@@ -295,7 +325,7 @@ void EngineUI::beginFrame(double gpuFrameTimeMs, double cpuFrameTimeMs)
         return;
     }
 
-    pushSample(gpuFrameTimeMs, cpuFrameTimeMs);
+    pushSample(gpuProfiler, cpuFrameTimeMs);
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();

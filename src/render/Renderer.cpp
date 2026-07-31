@@ -20,7 +20,7 @@ void Renderer::init(const Context& context, const Swapchain& swapChainManager)
 {
     varianceCompute.init(context, swapChainManager.extent.width, swapChainManager.extent.height);
     denoisingPass.init(context, swapChainManager.extent.width, swapChainManager.extent.height);
-    gpuTimer.init(context);
+    gpuProfiler.init(context);
     createSyncObjects(context, swapChainManager);
 }
 
@@ -60,15 +60,19 @@ void Renderer::recordCommandBuffer(int nativeWidth, int nativeHeight, int scaled
 
     commandBuffer.begin(beginInfo);
 
-    gpuTimer.begin(commandBuffer, currentFrame);
+    gpuProfiler.beginFrame(commandBuffer, currentFrame);
 
-    graphicsPipeline.geometryPipeline.recordDrawCommands(scaledWidth, scaledHeight, models, commandBuffer, currentFrame);
+    {
+        GpuProfiler::TimedSection geometrySection(gpuProfiler, "Geometry");
+        graphicsPipeline.geometryPipeline.recordDrawCommands(scaledWidth, scaledHeight, models, commandBuffer, currentFrame);
+    }
 
     gpu::Image::transition_depthRW_to_depthR(context, commandBuffer, graphicsPipeline.gBufferManager.depthImage, vk::Format::eD32Sfloat);
 
     // Lighting pipeline is only used when RT is disabled
     if (!Settings::displayRayTracing)
     {
+        GpuProfiler::TimedSection lightingSection(gpuProfiler, "Lighting");
         graphicsPipeline.lightingPipeline.recordDrawCommands(nativeWidth, nativeHeight, swapChainManager, fullScreenQuad, commandBuffer, currentFrame, imageIndex);
     }
 }
@@ -114,7 +118,7 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
     context.device.resetFences(inFlightFences[currentFrame]);
     commandBufferManager.commandBuffers[currentFrame].reset();
 
-    gpuTimer.resolve(context, currentFrame);
+    gpuProfiler.resolve(context, currentFrame);
 
     // Update uniforms
     updateUniformBuffers(scaledWidth, scaledHeight, camera, models, fullScreenQuad, swapChainManager, graphicsPipeline.rtPipeline, currentFrame);
@@ -136,7 +140,10 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
             gbufferToRtBarrier, {}, {});
 
         // Trace rays into the per-frame command buffer
-        graphicsPipeline.rtPipeline.traceRays(commandBuffer, Time::getFrameCount(), currentFrame);
+        {
+            GpuProfiler::TimedSection rayTracingSection(gpuProfiler, "Ray tracing");
+            graphicsPipeline.rtPipeline.traceRays(commandBuffer, Time::getFrameCount(), currentFrame);
+        }
 
         // Blit ray traced image to swapchain
 
@@ -182,8 +189,11 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
             rtImageBarrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
             commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {}, rtImageBarrier);
-            
-            denoisingPass.denoise(commandBuffer, Time::deltaTime());
+
+            {
+                GpuProfiler::TimedSection denoisingSection(gpuProfiler, "Denoising");
+                denoisingPass.denoise(commandBuffer, Time::deltaTime());
+            }
 
             sourceImage = denoisingPass.getDenoisedImage();
             sourceFormat = vk::Format::eR32G32B32A32Sfloat;
@@ -195,7 +205,10 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
         // Variance
         else if (Settings::displayVariance)
         {
-            varianceCompute.compute(commandBuffer, graphicsPipeline.rtPipeline.getStorageImageView(), graphicsPipeline.rtPipeline.getStorageImage());
+            {
+                GpuProfiler::TimedSection varianceSection(gpuProfiler, "Variance");
+                varianceCompute.compute(commandBuffer, graphicsPipeline.rtPipeline.getStorageImageView(), graphicsPipeline.rtPipeline.getStorageImage());
+            }
 
             sourceImage = varianceCompute.getVarianceImage();
             sourceFormat = vk::Format::eR32Sfloat;
@@ -263,7 +276,7 @@ void Renderer::drawFrame(int nativeWidth, int nativeHeight, int scaledWidth, int
     }
 
     // End and submit
-    gpuTimer.end(commandBuffer, currentFrame);
+    gpuProfiler.endFrame();
     commandBuffer.end();
 
     vk::SubmitInfo submitInfo{};
@@ -360,7 +373,7 @@ void Renderer::cleanup(const Context& context)
 {
     varianceCompute.cleanup(context);
     denoisingPass.cleanup(context);
-    gpuTimer.cleanup(context);
+    gpuProfiler.cleanup(context);
     
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
