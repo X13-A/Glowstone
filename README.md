@@ -7,7 +7,7 @@ Learning Vulkan and real-time path tracing algorithms through the development of
 <br>
 <br>
 <div style="">
-  <img src="media/render_portal.png" alt="Render">
+  <img src="media/test_chamber.png" alt="Engine screenshot">
 </div>
 
 ### Disclaimer
