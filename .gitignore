@@ -3,6 +3,7 @@ out/
 .vs/
 .vscode/
 *.spv
+local/
 
 # Claude
 CLAUDE.md
