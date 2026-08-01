@@ -1,3 +1,5 @@
+#pragma once
+
 #include "core/Vk.hpp"
 #include "gpu/Context.hpp"
 #include <functional>

@@ -46,10 +46,6 @@ private:
 
     assets::ShaderCompiler shaderCompiler{ assets::ShaderManifest::loadFromFile(core::SHADERS_MANIFEST) };
 
-    double frameTimeAccumulator = 0.0;
-    uint32_t frameTimeSamples = 0;
-    double lastTitleUpdate = 0.0;
-
     int nativeWidth, nativeHeight;
     int scaledWidth, scaledHeight;
     bool uiFocused = false;
@@ -83,8 +79,6 @@ private:
     void handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e);
 
     void mainLoop();
-
-    void updateWindowTitle();
 
     void limitFrameRate(double frameStart);
 

@@ -1,8 +1,6 @@
 #include "app/Application.hpp"
 #include <iostream>
 #include <string>
-#include <sstream>
-#include <iomanip>
 #include <thread>
 #include <chrono>
 #include "core/Math.hpp"
@@ -25,7 +23,6 @@ using namespace vkrt::render;
 using namespace vkrt::scene;
 
 namespace {
-constexpr double TITLE_UPDATE_INTERVAL = 0.25;
 constexpr int FRAME_RATE_CAP = 60;
 constexpr double FRAME_RATE_CAP_MARGIN = 0.002;
 }
@@ -287,7 +284,6 @@ void Application::mainLoop()
             Scene::update();
             renderer.drawFrame(nativeWidth, nativeHeight, scaledWidth, scaledHeight, windowManager.getWindow(), context, swapChainManager, graphicsPipelineManager, commandBufferManager, camera, Scene::getModels(), fullScreenQuad);
 
-            updateWindowTitle();
             limitFrameRate(frameStart);
 
             Time::update();
@@ -300,30 +296,6 @@ void Application::mainLoop()
     }
 
     context.device.waitIdle();
-}
-
-void Application::updateWindowTitle()
-{
-    frameTimeAccumulator += renderer.getGpuProfiler().getFrameTimeMs();
-    frameTimeSamples++;
-
-    double currentTime = Time::time();
-    if (currentTime - lastTitleUpdate < TITLE_UPDATE_INTERVAL)
-    {
-        return;
-    }
-
-    std::ostringstream title;
-    title << GLFW_WINDOW_NAME << " - " << std::fixed << std::setprecision(2) << frameTimeAccumulator / frameTimeSamples << " ms";
-    if (Settings::frameRateCap)
-    {
-        title << " (capped " << FRAME_RATE_CAP << " FPS)";
-    }
-    glfwSetWindowTitle(windowManager.getWindow(), title.str().c_str());
-
-    frameTimeAccumulator = 0.0;
-    frameTimeSamples = 0;
-    lastTitleUpdate = currentTime;
 }
 
 void Application::limitFrameRate(double frameStart)

@@ -85,6 +85,10 @@ if(WIN32)
         NOMINMAX
         WIN32_LEAN_AND_MEAN
         _CRT_SECURE_NO_WARNINGS)
+
+    # Executable icon
+    enable_language(RC)
+    target_sources(Glowstone PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/resources/Glowstone.rc")
 endif()
 
 if(MSVC)

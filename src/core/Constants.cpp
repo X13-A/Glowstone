@@ -9,7 +9,7 @@ const uint32_t VULKAN_API_VERSION = VK_API_VERSION_1_4;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 const uint32_t GLFW_WINDOW_WIDTH = 1920;
 const uint32_t GLFW_WINDOW_HEIGHT = 1080;
-const char* GLFW_WINDOW_NAME = "Vulkan";
+const char* GLFW_WINDOW_NAME = "Glowstone";
 
 const char* SHADERS_DIR = "assets/shaders";
 const char* SHADERS_MANIFEST = "assets/shaders/shaders.json";
