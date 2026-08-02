@@ -8,7 +8,8 @@ static float PI = 3.14159265359;
 static float3 SUN_DIR = normalize(-float3(0.5, 1, 0.5));
 static float SUN_ANGULAR_RADIUS = 0.0873f; // Actual sun is ~0.5 degrees. 10x here for softer shadows
 static float3 SUN_COLOR = float3(15.0, 12.0, 8.0) * 100.0;
-static float3 SKY_COLOR = float3(62.0 / 255.0, 105.0 / 255.0, 196.0 / 255.0) * 2;
+static float3 SKY_ZENITH_COLOR = float3(120.0 / 255.0, 190.0 / 255.0, 255.0 / 255.0);
+static float3 SKY_HORIZON_COLOR = float3(255.0 / 255.0, 138.0 / 255.0, 51.0 / 255.0) * 1.5;
 
 // FIXME: Emission hack
 static float3 EMISSIVE_RADIANCE = float3(1.0, 1.0, 1.0) * 10.0;
@@ -31,7 +32,12 @@ float3 getSkyLight(float3 rayDir)
     float cosSunRadius = cos(SUN_ANGULAR_RADIUS);
     float sunDot = max(0.0, dot(rayDir, sunDir) - cosSunRadius);
     float normalizer = 1.0 / (1.0 - cosSunRadius);
-    return SKY_COLOR + SUN_COLOR * sunDot * normalizer;
+
+    // Vertical gradient
+    float t = saturate(rayDir.y * 0.5 + 0.5);
+    float3 skyColor = lerp(SKY_HORIZON_COLOR, SKY_ZENITH_COLOR, smoothstep(0.0, 1.0, t));
+
+    return skyColor + SUN_COLOR * sunDot * normalizer;
 }
 
 bool isEmissiveAlbedo(float3 albedo)
