@@ -240,7 +240,12 @@ void EngineUI::buildRenderingSection()
 
     changed |= ImGui::Checkbox("Ray tracing", &Settings::displayRayTracing);
     shortcutHint("R");
-    changed |= ImGui::Checkbox("Accumulate frames", &Settings::frameAccumulation);
+
+    bool frameAccumulation = Settings::frameAccumulation;
+    if (ImGui::Checkbox("Accumulate frames", &frameAccumulation))
+    {
+        EventManager::get().enqueue(RequestFrameAccumulationChangeEvent{ frameAccumulation });
+    }
 
     int samplingMode = Settings::samplingMode;
     if (ImGui::Combo("Sampling", &samplingMode, SAMPLING_MODE_NAMES, IM_ARRAYSIZE(SAMPLING_MODE_NAMES)))

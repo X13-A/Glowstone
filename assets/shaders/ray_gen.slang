@@ -4,6 +4,10 @@
 #define SAMPLING_MODE SAMPLING_MODE_RESTIR
 #endif
 
+#ifndef ACCUMULATE_FRAMES
+#define ACCUMULATE_FRAMES 1
+#endif
+
 #if SAMPLING_MODE == SAMPLING_MODE_RESTIR
 #include "restir.slang"
 #endif
@@ -30,15 +34,17 @@ PushConstants pushConstants;
 #include "restir_stages.slang"
 #endif
 
-#if SAMPLING_MODE != SAMPLING_MODE_RESTIR
-void blendResult(float4 previousColor, float4 currentColor, uint2 pixelCoord, uint frameCount)
+// Single write point for the shaded result
+void applyResult(float4 previousColor, float4 currentColor, uint2 pixelCoord, uint frameCount)
 {
-    // Temporal accumulation
+#if ACCUMULATE_FRAMES
     float weight = 1.0 / float(frameCount + 1);
     float4 finalColor = lerp(previousColor, currentColor, weight);
     renderTarget[pixelCoord] = float4(finalColor.rgb, 1.0);
-}
+#else
+    renderTarget[pixelCoord] = float4(currentColor.rgb, 1.0);
 #endif
+}
 
 // Trace a ray and return the incoming radiance
 float3 traceRadiance(float3 origin, float3 direction, uint rngState)
@@ -140,7 +146,7 @@ void main()
     Reservoir final = temporal;
 #endif
 
-    renderTarget[pixelCoord] = float4(shade(q, final), 1.0);
+    applyResult(previousColor, float4(shade(q, final), 1.0), pixelCoord, pushConstants.frameCount);
     return;
 #else
 
@@ -205,7 +211,7 @@ void main()
     // Divide by spp
     float3 currentColor = giColor / float(spp);
 
-    blendResult(previousColor, float4(currentColor, 1), pixelCoord, pushConstants.frameCount);
+    applyResult(previousColor, float4(currentColor, 1), pixelCoord, pushConstants.frameCount);
 
 #endif // SAMPLING_MODE == SAMPLING_MODE_RESTIR
 }

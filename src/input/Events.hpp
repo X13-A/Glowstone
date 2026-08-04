@@ -40,5 +40,10 @@ struct RequestRenderScaleChangeEvent
     float scale;
 };
 
+struct RequestFrameAccumulationChangeEvent
+{
+    bool enabled;
+};
+
 } // namespace input
 } // namespace vkrt

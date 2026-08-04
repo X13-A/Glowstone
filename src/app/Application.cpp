@@ -70,9 +70,10 @@ void Application::handleResourceResizeRequest(const RequestResourceResizeEvent& 
 
 void Application::run()
 {
-    // Reset sampling mode to default on startup
+    // Reset the raygen defines to their defaults on startup
     // FIXME: forces recompile of ray_gen on every start
     shaderCompiler.setDefine("SAMPLING_MODE", std::to_string(Settings::samplingMode));
+    shaderCompiler.setDefine("ACCUMULATE_FRAMES", Settings::frameAccumulation ? "1" : "0");
     shaderCompiler.compileOutdated(SHADERS_DIR);
     shaderCompiler.compileShader("ray_gen", SHADERS_DIR);
     std::cout << "\nStarting engine...\n" << std::endl;
@@ -91,6 +92,7 @@ void Application::run()
     EventManager::get().sink<RequestShaderReloadEvent>().connect<&Application::handleShaderReloadRequest>(this);
     EventManager::get().sink<RequestSamplingModeChangeEvent>().connect<&Application::handleSamplingModeChangeRequest>(this);
     EventManager::get().sink<RequestRenderScaleChangeEvent>().connect<&Application::handleRenderScaleChangeRequest>(this);
+    EventManager::get().sink<RequestFrameAccumulationChangeEvent>().connect<&Application::handleFrameAccumulationChangeRequest>(this);
     initVulkan();
     mainLoop();
     cleanup();
@@ -221,6 +223,11 @@ void Application::handleSamplingModeChangeRequest(const RequestSamplingModeChang
     setSamplingMode(e.mode);
 }
 
+void Application::handleFrameAccumulationChangeRequest(const RequestFrameAccumulationChangeEvent& e)
+{
+    setFrameAccumulation(e.enabled);
+}
+
 void Application::handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e)
 {
     Settings::renderScale = e.scale;
@@ -247,22 +254,40 @@ void Application::reloadShaders()
     std::cout << "Shaders reloaded" << std::endl;
 }
 
-void Application::setSamplingMode(int mode)
+bool Application::reloadRayTracingShader(const std::string& name)
 {
-    Settings::samplingMode = std::clamp(mode, 0, 3);
-
-    // Push sampling define and recompile shader
-    shaderCompiler.setDefine("SAMPLING_MODE", std::to_string(Settings::samplingMode));
-    if (!shaderCompiler.compileShader("ray_gen", SHADERS_DIR))
+    if (!shaderCompiler.compileShader(name, SHADERS_DIR))
     {
-        return;
+        return false;
     }
 
     context.device.waitIdle();
     graphicsPipelineManager.rtPipeline.reloadShaders(context);
 
     Time::resetFrameCount();
-    std::cout << "Sampling mode: " << Settings::samplingMode << " (recompiled)" << std::endl;
+    return true;
+}
+
+void Application::setSamplingMode(int mode)
+{
+    Settings::samplingMode = std::clamp(mode, 0, 3);
+
+    shaderCompiler.setDefine("SAMPLING_MODE", std::to_string(Settings::samplingMode));
+    if (reloadRayTracingShader("ray_gen"))
+    {
+        std::cout << "Sampling mode: " << Settings::samplingMode << " (recompiled)" << std::endl;
+    }
+}
+
+void Application::setFrameAccumulation(bool enabled)
+{
+    Settings::frameAccumulation = enabled;
+
+    shaderCompiler.setDefine("ACCUMULATE_FRAMES", enabled ? "1" : "0");
+    if (reloadRayTracingShader("ray_gen"))
+    {
+        std::cout << "Frame accumulation: " << (enabled ? "on" : "off") << " (recompiled)" << std::endl;
+    }
 }
 
 void Application::mainLoop()
@@ -346,6 +371,7 @@ void Application::cleanup()
     EventManager::get().sink<RequestShaderReloadEvent>().disconnect<&Application::handleShaderReloadRequest>(this);
     EventManager::get().sink<RequestSamplingModeChangeEvent>().disconnect<&Application::handleSamplingModeChangeRequest>(this);
     EventManager::get().sink<RequestRenderScaleChangeEvent>().disconnect<&Application::handleRenderScaleChangeRequest>(this);
+    EventManager::get().sink<RequestFrameAccumulationChangeEvent>().disconnect<&Application::handleFrameAccumulationChangeRequest>(this);
     inputManager.cleanup();
     engineUI.cleanup(context);
     renderer.cleanup(context);

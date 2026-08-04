@@ -68,7 +68,11 @@ private:
 
     void reloadShaders();
 
+    bool reloadRayTracingShader(const std::string& name);
+
     void setSamplingMode(int mode);
+
+    void setFrameAccumulation(bool enabled);
 
     void handleResourceResizeRequest(const RequestResourceResizeEvent& e);
 
@@ -77,6 +81,8 @@ private:
     void handleSamplingModeChangeRequest(const RequestSamplingModeChangeEvent& e);
 
     void handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e);
+
+    void handleFrameAccumulationChangeRequest(const RequestFrameAccumulationChangeEvent& e);
 
     void mainLoop();
 

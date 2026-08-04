@@ -5,7 +5,7 @@
 // Includer must have declared:
 // - "scene" acceleration structure
 // - "reservoirBufferA" and "reservoirBufferB"
-// - "velocityBuffer" and "sceneData"
+// - "velocityBuffer", "sceneData" and "pushConstants"
 
 // #============================================#
 // # Reservoir storage (ping-pong)
@@ -83,9 +83,18 @@ Reservoir generateCandidate(Surface q, inout uint rngState)
 // # Reuse
 // #============================================#
 
+bool historyIsValid()
+{
+#if ACCUMULATE_FRAMES
+    return pushConstants.frameCount > 0u;
+#else
+    return true;
+#endif
+}
+
 Reservoir loadNeighbour(Surface q, float qDepth, int2 pixel, uint2 screenSize)
 {
-    if (any(pixel < 0) || any(uint2(pixel) >= screenSize))
+    if (!historyIsValid() || any(pixel < 0) || any(uint2(pixel) >= screenSize))
     {
         return createReservoir();
     }
