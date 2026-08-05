@@ -56,8 +56,8 @@ float3 traceRadiance(float3 origin, float3 direction, uint rngState)
     RayDesc ray;
     ray.Origin = origin;
     ray.Direction = direction;
-    ray.TMin = 0.01;
-    ray.TMax = 1000.0;
+    ray.TMin = RAY_TMIN;
+    ray.TMax = RAY_TMAX;
 
     TraceRay(scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
     return payload.color;

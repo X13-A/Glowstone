@@ -5,9 +5,6 @@
 // Ray helpers for the ReSTIR pass
 // Includer must have declared the `scene` acceleration structure
 
-static const float RESTIR_RAY_TMIN = 0.01;
-static const float RESTIR_RAY_TMAX = 1000.0;
-
 static const float RESTIR_SHADOW_PULLBACK = 1e-6;
 
 struct CandidateHit
@@ -25,8 +22,8 @@ CandidateHit traceCandidateRay(float3 origin, float3 direction)
     RayDesc ray;
     ray.Origin = origin;
     ray.Direction = direction;
-    ray.TMin = RESTIR_RAY_TMIN;
-    ray.TMax = RESTIR_RAY_TMAX;
+    ray.TMin = RAY_TMIN;
+    ray.TMax = RAY_TMAX;
 
     TraceRay(scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
 
@@ -46,7 +43,7 @@ float traceShadowRay(float3 origin, float3 direction, float tMax)
     RayDesc ray;
     ray.Origin = origin;
     ray.Direction = direction;
-    ray.TMin = RESTIR_RAY_TMIN;
+    ray.TMin = RAY_TMIN;
     ray.TMax = tMax;
 
     uint flags = RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER;
@@ -61,11 +58,11 @@ float traceVisibility(Surface q, LightSample y)
 
     if ((y.flags & kLightIsInfinite) != 0u)
     {
-        return traceShadowRay(q.position, wi, RESTIR_RAY_TMAX);
+        return traceShadowRay(q.position, wi, RAY_TMAX);
     }
 
     float dist = distance(y.position, q.position);
-    if (dist <= RESTIR_RAY_TMIN)
+    if (dist <= RAY_TMIN)
     {
         return 0.0;
     }

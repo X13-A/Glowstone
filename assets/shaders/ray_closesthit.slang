@@ -175,8 +175,8 @@ void main(inout RayPayload payload, in Attributes attribs)
             RayDesc ray;
             ray.Origin = payload.pos;
             ray.Direction = bounceDir;
-            ray.TMin = 0.01;
-            ray.TMax = 1000.0;
+            ray.TMin = RAY_TMIN;
+            ray.TMax = RAY_TMAX;
 
             TraceRay(scene, 0, 0xFF, 0, 1, 0, ray, bouncePayload);
             

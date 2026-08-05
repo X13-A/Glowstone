@@ -4,6 +4,9 @@
 // # Constants and defines
 // #============================================#
 
+static const float RAY_TMIN = 0.001;
+static const float RAY_TMAX = 1000.0;
+
 static float PI = 3.14159265359;
 static float3 SUN_DIR = normalize(-float3(0.5, 1, 0.5));
 static float SUN_ANGULAR_RADIUS = 0.0873f; // Actual sun is ~0.5 degrees. 10x here for softer shadows
