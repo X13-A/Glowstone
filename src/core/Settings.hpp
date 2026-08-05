@@ -15,6 +15,7 @@ public:
     static bool debugBool1;
     static int risCandidates;
     static int samplingMode;
+    static bool restirSpatialReuse;
 
     static bool frameAccumulation;
     static bool frameRateCap;

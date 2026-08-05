@@ -14,6 +14,7 @@ int Settings::debugIndex2 = 0;
 bool Settings::debugBool1 = false;
 int Settings::risCandidates = 1;
 int Settings::samplingMode = 3; // 0: Cosine, 1: MIS, 2: MIS + RIS, 3: RESTIR
+bool Settings::restirSpatialReuse = true;
 
 bool Settings::frameAccumulation = false;
 bool Settings::frameRateCap = false;

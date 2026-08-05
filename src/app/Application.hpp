@@ -74,6 +74,8 @@ private:
 
     void setFrameAccumulation(bool enabled);
 
+    void setRestirSpatialReuse(bool enabled);
+
     void handleResourceResizeRequest(const RequestResourceResizeEvent& e);
 
     void handleShaderReloadRequest(const RequestShaderReloadEvent& e);
@@ -83,6 +85,8 @@ private:
     void handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e);
 
     void handleFrameAccumulationChangeRequest(const RequestFrameAccumulationChangeEvent& e);
+
+    void handleRestirSpatialReuseChangeRequest(const RequestRestirSpatialReuseChangeEvent& e);
 
     void mainLoop();
 

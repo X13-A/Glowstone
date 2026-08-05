@@ -34,6 +34,7 @@ constexpr int SPP_MAX = 64;
 constexpr int RIS_CANDIDATES_MAX = 64;
 
 const char* const SAMPLING_MODE_NAMES[] = { "Cosine", "MIS", "MIS + RIS", "ReSTIR" };
+constexpr int SAMPLING_MODE_RESTIR = 3;
 
 PFN_vkVoidFunction loadVulkanFunction(const char* name, void* instance)
 {
@@ -252,6 +253,14 @@ void EngineUI::buildRenderingSection()
     {
         EventManager::get().enqueue(RequestSamplingModeChangeEvent{ samplingMode });
     }
+
+    ImGui::BeginDisabled(Settings::samplingMode != SAMPLING_MODE_RESTIR);
+    bool restirSpatialReuse = Settings::restirSpatialReuse;
+    if (ImGui::Checkbox("Spatial reuse", &restirSpatialReuse))
+    {
+        EventManager::get().enqueue(RequestRestirSpatialReuseChangeEvent{ restirSpatialReuse });
+    }
+    ImGui::EndDisabled();
 
     changed |= ImGui::SliderInt("Samples per pixel", &Settings::spp, 1, SPP_MAX);
     changed |= ImGui::SliderInt("Bounces", &Settings::rt_recursion_depth, 0, RT_MAX_RECURSION_DEPTH);

@@ -45,5 +45,10 @@ struct RequestFrameAccumulationChangeEvent
     bool enabled;
 };
 
+struct RequestRestirSpatialReuseChangeEvent
+{
+    bool enabled;
+};
+
 } // namespace input
 } // namespace vkrt

@@ -74,6 +74,7 @@ void Application::run()
     // FIXME: forces recompile of ray_gen on every start
     shaderCompiler.setDefine("SAMPLING_MODE", std::to_string(Settings::samplingMode));
     shaderCompiler.setDefine("ACCUMULATE_FRAMES", Settings::frameAccumulation ? "1" : "0");
+    shaderCompiler.setDefine("RESTIR_SPATIAL_REUSE", Settings::restirSpatialReuse ? "1" : "0");
     shaderCompiler.compileOutdated(SHADERS_DIR);
     shaderCompiler.compileShader("ray_gen", SHADERS_DIR);
     std::cout << "\nStarting engine...\n" << std::endl;
@@ -93,6 +94,7 @@ void Application::run()
     EventManager::get().sink<RequestSamplingModeChangeEvent>().connect<&Application::handleSamplingModeChangeRequest>(this);
     EventManager::get().sink<RequestRenderScaleChangeEvent>().connect<&Application::handleRenderScaleChangeRequest>(this);
     EventManager::get().sink<RequestFrameAccumulationChangeEvent>().connect<&Application::handleFrameAccumulationChangeRequest>(this);
+    EventManager::get().sink<RequestRestirSpatialReuseChangeEvent>().connect<&Application::handleRestirSpatialReuseChangeRequest>(this);
     initVulkan();
     mainLoop();
     cleanup();
@@ -228,6 +230,11 @@ void Application::handleFrameAccumulationChangeRequest(const RequestFrameAccumul
     setFrameAccumulation(e.enabled);
 }
 
+void Application::handleRestirSpatialReuseChangeRequest(const RequestRestirSpatialReuseChangeEvent& e)
+{
+    setRestirSpatialReuse(e.enabled);
+}
+
 void Application::handleRenderScaleChangeRequest(const RequestRenderScaleChangeEvent& e)
 {
     Settings::renderScale = e.scale;
@@ -287,6 +294,17 @@ void Application::setFrameAccumulation(bool enabled)
     if (reloadRayTracingShader("ray_gen"))
     {
         std::cout << "Frame accumulation: " << (enabled ? "on" : "off") << " (recompiled)" << std::endl;
+    }
+}
+
+void Application::setRestirSpatialReuse(bool enabled)
+{
+    Settings::restirSpatialReuse = enabled;
+
+    shaderCompiler.setDefine("RESTIR_SPATIAL_REUSE", enabled ? "1" : "0");
+    if (reloadRayTracingShader("ray_gen"))
+    {
+        std::cout << "ReSTIR spatial reuse: " << (enabled ? "on" : "off") << " (recompiled)" << std::endl;
     }
 }
 
@@ -372,6 +390,7 @@ void Application::cleanup()
     EventManager::get().sink<RequestSamplingModeChangeEvent>().disconnect<&Application::handleSamplingModeChangeRequest>(this);
     EventManager::get().sink<RequestRenderScaleChangeEvent>().disconnect<&Application::handleRenderScaleChangeRequest>(this);
     EventManager::get().sink<RequestFrameAccumulationChangeEvent>().disconnect<&Application::handleFrameAccumulationChangeRequest>(this);
+    EventManager::get().sink<RequestRestirSpatialReuseChangeEvent>().disconnect<&Application::handleRestirSpatialReuseChangeRequest>(this);
     inputManager.cleanup();
     engineUI.cleanup(context);
     renderer.cleanup(context);
