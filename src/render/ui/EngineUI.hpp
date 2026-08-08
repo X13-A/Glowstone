@@ -8,11 +8,13 @@
 #include "gpu/GpuProfiler.hpp"
 #include "gpu/Swapchain.hpp"
 #include "render/OverlayPass.hpp"
+#include "scene/Camera.hpp"
 
 
 namespace vkrt {
 namespace render {
 using namespace vkrt::gpu;
+using namespace vkrt::scene;
 
 class EngineUI : public OverlayPass
 {
@@ -23,7 +25,7 @@ public:
     void init(const Context& context, const Swapchain& swapchain, GLFWwindow* window);
     void handleResize(const Context& context, const Swapchain& swapchain);
     void setInputEnabled(bool enabled);
-    void beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs);
+    void beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs, const Camera& camera);
 
     void record(vk::CommandBuffer commandBuffer, uint32_t imageIndex) override;
     void cleanup(const Context& context);
@@ -43,8 +45,9 @@ private:
     void destroyFramebuffers(const Context& context);
 
     void pushSample(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs);
-    void buildPanel();
+    void buildPanel(const Camera& camera);
     void buildPerformanceSection() const;
+    void buildCameraSection(const Camera& camera) const;
     void buildRenderingSection();
     void buildDenoisingSection() const;
     void buildDebugSection() const;

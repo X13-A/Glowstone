@@ -320,7 +320,7 @@ void Application::mainLoop()
             inputManager.retrieveInputs(windowManager.getWindow());
             handleInputs();
 
-            engineUI.beginFrame(renderer.getGpuProfiler(), Time::deltaTime() * 1000.0);
+            engineUI.beginFrame(renderer.getGpuProfiler(), Time::deltaTime() * 1000.0, camera);
 
             EventManager::get().update();
 

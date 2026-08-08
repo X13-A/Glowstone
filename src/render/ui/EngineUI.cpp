@@ -233,6 +233,16 @@ void EngineUI::buildPerformanceSection() const
     ImGui::Checkbox("Cap frame rate", &Settings::frameRateCap);
 }
 
+void EngineUI::buildCameraSection(const Camera& camera) const
+{
+    const glm::vec3 position = camera.transform.getPosition();
+    const glm::vec3 rotation = camera.transform.getRotationEuler();
+
+    ImGui::SeparatorText("Camera");
+    ImGui::Text("Pos  %7.2f %7.2f %7.2f", position.x, position.y, position.z);
+    ImGui::Text("Rot  %7.2f %7.2f %7.2f", rotation.x, rotation.y, rotation.z);
+}
+
 void EngineUI::buildRenderingSection()
 {
     ImGui::SeparatorText("Rendering");
@@ -307,7 +317,7 @@ void EngineUI::buildDebugSection() const
     }
 }
 
-void EngineUI::buildPanel()
+void EngineUI::buildPanel(const Camera& camera)
 {
     ImGui::SetNextWindowPos(ImVec2(PANEL_MARGIN, PANEL_MARGIN), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(PANEL_ALPHA);
@@ -317,6 +327,7 @@ void EngineUI::buildPanel()
         ImGui::PushItemWidth(ITEM_WIDTH);
 
         buildPerformanceSection();
+        buildCameraSection(camera);
         buildRenderingSection();
         buildDenoisingSection();
         buildDebugSection();
@@ -326,7 +337,7 @@ void EngineUI::buildPanel()
     ImGui::End();
 }
 
-void EngineUI::beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs)
+void EngineUI::beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs, const Camera& camera)
 {
     frameBuilt = visible;
     if (!frameBuilt)
@@ -340,7 +351,7 @@ void EngineUI::beginFrame(const GpuProfiler& gpuProfiler, double cpuFrameTimeMs)
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    buildPanel();
+    buildPanel(camera);
 
     ImGui::Render();
 }
