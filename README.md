@@ -11,8 +11,9 @@ Learning Vulkan and real-time path tracing algorithms through the development of
 </div>
 
 ### Disclaimer
-In it's current state, the project is a support for learning path tracing algorithms and GPU programming. Some unoptimized or redundant code segments are to be expected.
-
+- In it's current state, the project is a support for learning path tracing algorithms and GPU programming. Some unoptimized or redundant code segments are to be expected.
+- It seems that path tracing is broken on AMD GPUs. The scene renders with blocky artifacts, I'm on it !
+  
 ### Portfolio page
 More details on this page:
 https://www.lix.polytechnique.fr/~foulon/#/projects/hybrid-hardware-raytracer
