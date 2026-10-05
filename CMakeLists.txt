@@ -1,5 +1,21 @@
 cmake_minimum_required(VERSION 3.21)
 
+# ---- Toolchain checks -------------------------------------------------------
+if(CMAKE_GENERATOR MATCHES "Ninja" AND NOT CMAKE_MAKE_PROGRAM)
+    find_program(GLOWSTONE_NINJA ninja)
+    if(NOT GLOWSTONE_NINJA)
+        message(FATAL_ERROR "Ninja was not found on PATH.\n")
+    endif()
+endif()
+
+if(NOT CMAKE_GENERATOR MATCHES "Visual Studio" AND CMAKE_CXX_COMPILER MATCHES "^cl(\\.exe)?$")
+    find_program(GLOWSTONE_CL cl)
+    if(NOT GLOWSTONE_CL)
+        message(FATAL_ERROR
+            "cl.exe (MSVC) was not found on PATH.")
+    endif()
+endif()
+
 project(Glowstone LANGUAGES CXX)
 
 # ---- Standard ---------------------------------------------------------------
@@ -28,7 +44,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>")
 
 # ---- Vulkan -----------------------------------------------------------------
-find_package(Vulkan REQUIRED)
+find_package(Vulkan 1.4)
+
+if(NOT Vulkan_FOUND)
+    message(FATAL_ERROR
+        "Vulkan SDK 1.4+ not found. ${_vulkan_sdk_state}\n")
+endif()
 
 # ---- Fetched dependencies -----------------------------------------------------------
 include(FetchContent)
@@ -97,6 +118,10 @@ endif()
 
 # ---- Shaders ----------------------------------------------------------------
 find_program(SLANGC_EXECUTABLE slangc HINTS "$ENV{VULKAN_SDK}/Bin" "$ENV{VULKAN_SDK}/bin")
+if(NOT SLANGC_EXECUTABLE)
+    message(WARNING "slangc not found: shaders cannot be compiled at runtime or installed. "
+                    "It ships with the Vulkan SDK.")
+endif()
 
 set(ASSET_DIR       "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 set(SHADER_SRC_DIR  "${ASSET_DIR}/shaders")
