@@ -1,0 +1,8 @@
+{
+    "cmake.useCMakePresets": "always",
+    "cmake.buildBeforeRun": true,
+    "cmake.debugConfig": {
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal"
+    }
+}

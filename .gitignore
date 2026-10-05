@@ -1,7 +1,6 @@
 build/
 out/
 .vs/
-.vscode/
 *.spv
 local/
 
